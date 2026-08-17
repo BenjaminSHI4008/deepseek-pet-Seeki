@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "character": "Deepseek",
+  "direction": "south",
+  "defaultState": "idle",
+
+  "animations": {
+    "Breathing_Idle":          { "fps": 4,   "count": 4 },
+    "Crouched_Walking":        { "fps": 8,   "count": 6 },
+    "Close_eyes_and_sleeping": { "fps": 2.5, "count": 9 },
+    "Happy":                   { "fps": 5,   "count": 9 }
+  },
+
+  "states": {
+    "idle":  { "label": "待机 idle",   "anim": "Breathing_Idle" },
+    "walk":  { "label": "走路 walk",   "anim": "Crouched_Walking" },
+    "happy": { "label": "开心 happy",  "anim": "Happy" },
+    "yawn":  { "label": "打哈欠 yawn", "anim": "Close_eyes_and_sleeping", "range": [0, 2], "next": "sleep" },
+    "sleep": { "label": "睡觉 sleep",  "anim": "Close_eyes_and_sleeping", "range": [3, 8] }
+  },
+
+  "triggers": {
+    "buttons": [
+      { "id": "idle",  "label": "待机", "state": "idle" },
+      { "id": "walk",  "label": "走路", "state": "walk" },
+      { "id": "sleep", "label": "睡觉", "state": "yawn" },
+      { "id": "happy", "label": "开心", "state": "happy" }
+    ],
+    "drag":      { "during": "walk", "after": "idle" },
+    "clickIdle": { "to": "happy", "returnTo": "idle", "afterMs": 2000 },
+    "wake":      { "from": ["sleep", "yawn"], "to": "idle" },
+    "timeout":   { "from": "idle", "to": "yawn", "afterMs": 15000 }
+  }
+}

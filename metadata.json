@@ -1,0 +1,81 @@
+{
+  "group_id": "2170d09a-33b1-4197-8cc3-18eea75a3208",
+  "states": [
+    {
+      "character": {
+        "id": "af50fe80-ca41-42dd-81f8-e6e4004f02cc",
+        "name": "Deepseek",
+        "prompt": "A cute chibi pixel art character inspired by anime style.\n\nA small fantasy digital companion character with an oversized round head and a tiny body.\nThe character has long flowing deep blue-purple hair, large bright blue eyes, and a cute gentle expression.\n\nDesign features:\n- chibi anime proportions\n- big head, small body\n- short arms and short legs\n- cute simplified hands and feet\n- soft rounded silhouette\n- small elegant fantasy outfit\n- blue and white color palette\n- cute maid-inspired clothing details\n- small decorative hair accessories\n\nPixel art style:\n- high quality pixel art\n- clean pixel edges\n- limited color palette\n- detailed but simple sprite design\n- retro game character style\n- cute anime game sprite\n- animation-ready character\n\nCharacter requirements:\n- full body\n- front facing\n- standing pose\n- centered character\n- transparent background\n- suitable for sprite sheet animation\n- designed for idle, walking, waving and sleeping animations\n\nAvoid:\nrealistic human,\n3D render,\ncomplex background,\nphotorealistic,\ntoo much detail,\nlarge weapons,\narmor,\ndark horror style.",
+        "size": {
+          "width": 128,
+          "height": 128
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-08-16T08:54:52.545248+00:00"
+      },
+      "folder": "Deepseek",
+      "frames": {
+        "rotations": {
+          "south": "Deepseek/rotations/south.png",
+          "south-east": "Deepseek/rotations/south-east.png",
+          "east": "Deepseek/rotations/east.png",
+          "north-east": "Deepseek/rotations/north-east.png",
+          "north": "Deepseek/rotations/north.png",
+          "north-west": "Deepseek/rotations/north-west.png",
+          "west": "Deepseek/rotations/west.png",
+          "south-west": "Deepseek/rotations/south-west.png"
+        },
+        "animations": {
+          "Close_eyes_and_sleeping": {
+            "south": [
+              "Deepseek/animations/Close_eyes_and_sleeping/south/frame_000.png",
+              "Deepseek/animations/Close_eyes_and_sleeping/south/frame_001.png",
+              "Deepseek/animations/Close_eyes_and_sleeping/south/frame_002.png",
+              "Deepseek/animations/Close_eyes_and_sleeping/south/frame_003.png",
+              "Deepseek/animations/Close_eyes_and_sleeping/south/frame_004.png",
+              "Deepseek/animations/Close_eyes_and_sleeping/south/frame_005.png",
+              "Deepseek/animations/Close_eyes_and_sleeping/south/frame_006.png",
+              "Deepseek/animations/Close_eyes_and_sleeping/south/frame_007.png",
+              "Deepseek/animations/Close_eyes_and_sleeping/south/frame_008.png"
+            ]
+          },
+          "Breathing_Idle": {
+            "south": [
+              "Deepseek/animations/Breathing_Idle/south/frame_000.png",
+              "Deepseek/animations/Breathing_Idle/south/frame_001.png",
+              "Deepseek/animations/Breathing_Idle/south/frame_002.png",
+              "Deepseek/animations/Breathing_Idle/south/frame_003.png"
+            ]
+          },
+          "Crouched_Walking": {
+            "south": [
+              "Deepseek/animations/Crouched_Walking/south/frame_000.png",
+              "Deepseek/animations/Crouched_Walking/south/frame_001.png",
+              "Deepseek/animations/Crouched_Walking/south/frame_002.png",
+              "Deepseek/animations/Crouched_Walking/south/frame_003.png",
+              "Deepseek/animations/Crouched_Walking/south/frame_004.png",
+              "Deepseek/animations/Crouched_Walking/south/frame_005.png"
+            ]
+          },
+          "Happy": {
+            "south": [
+              "Deepseek/animations/Happy/south/frame_000.png",
+              "Deepseek/animations/Happy/south/frame_001.png",
+              "Deepseek/animations/Happy/south/frame_002.png",
+              "Deepseek/animations/Happy/south/frame_003.png",
+              "Deepseek/animations/Happy/south/frame_004.png",
+              "Deepseek/animations/Happy/south/frame_005.png",
+              "Deepseek/animations/Happy/south/frame_006.png",
+              "Deepseek/animations/Happy/south/frame_007.png",
+              "Deepseek/animations/Happy/south/frame_008.png"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "export_version": "3.1",
+  "export_date": "2026-08-16T17:14:44.958901"
+}

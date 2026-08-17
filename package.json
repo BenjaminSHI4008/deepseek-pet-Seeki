@@ -1,0 +1,26 @@
+{
+  "name": "deepseek-pet",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness 桌宠插件：透明置顶的桌面精灵（2D 像素风状态机）",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BenjaminSHI4008/deepseek-pet.git"
+  },
+  "keywords": [
+    "deepseek",
+    "harness",
+    "desktop-pet",
+    "pet",
+    "electron",
+    "pixel-art"
+  ],
+  "author": "BenjaminSHI4008",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "latest"
+  }
+}
