@@ -1,5 +1,5 @@
 // Electron 主进程：透明、无边框、置顶的桌宠窗口 + 连接 harness 状态流
-const { app, BrowserWindow, Menu, screen, ipcMain } = require('electron')
+const { app, BrowserWindow, Menu, screen, ipcMain, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const WebSocket = require('ws')
@@ -15,6 +15,8 @@ try {
 }
 // 优先用 harness 插件通过环境变量传入的地址（端口随 harness 实际绑定端口变化）
 const WS_URL = process.env.PET_WS_URL ?? petConfig.server?.wsUrl ?? 'ws://127.0.0.1:3080/api/pet.ws'
+// 配置页地址：由 WS 地址推导（ws://host:port/api/pet.ws → http://host:port/pet/settings）
+const SETTINGS_URL = WS_URL.replace(/^ws/, 'http').replace(/\/api\/pet\.ws$/, '') + '/pet/settings'
 
 // ── 连接 harness 状态流 ────────────────────────────────────────────────
 let mainWindow = null
@@ -105,9 +107,13 @@ function createWindow() {
   win.setPosition(workAreaSize.width - WIN_SIZE - 40, workAreaSize.height - WIN_SIZE - 40)
   win.loadFile('index.html')
 
-  // 右键退出（无边框窗口没有关闭按钮）
+  // 右键菜单：更改配置 / 退出（无边框窗口没有关闭按钮）
   win.webContents.on('context-menu', () => {
-    Menu.buildFromTemplate([{ label: '退出桌宠', click: () => app.quit() }]).popup({ window: win })
+    Menu.buildFromTemplate([
+      { label: '⚙️ 更改配置', click: () => shell.openExternal(SETTINGS_URL) },
+      { type: 'separator' },
+      { label: '退出桌宠', click: () => app.quit() },
+    ]).popup({ window: win })
   })
 
   mainWindow = win
