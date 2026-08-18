@@ -1,8 +1,7 @@
 {
-  "version": 2,
+  "version": 3,
   "character": "Deepseek",
   "direction": "south",
-  "defaultAction": "idle",
   "server": {
     "wsUrl": "ws://127.0.0.1:3080/api/pet.ws"
   },
@@ -58,27 +57,30 @@
       ]
     }
   },
-  "triggers": {
-    "drag": {
-      "during": "walk",
-      "after": "idle"
+  "statusActionMs": 2000,
+  "characterStates": {
+    "default": {
+      "play": [
+        "idle"
+      ]
     },
-    "clickIdle": {
-      "to": "happy",
+    "click": {
+      "play": [
+        "happy"
+      ],
       "returnTo": "idle",
       "afterMs": 2000
     },
-    "wake": {
-      "from": [
-        "sleep"
+    "drag": {
+      "play": [
+        "walk"
       ],
-      "to": "idle"
+      "returnTo": "idle"
     },
     "timeout": {
-      "from": "idle",
-      "to": "sleep",
+      "before": "idle",
+      "after": "sleep",
       "afterMs": 12000
-    },
-    "statusActionMs": 2000
+    }
   }
 }

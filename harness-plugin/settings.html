@@ -50,12 +50,19 @@
     .cs-row .field { flex: 1 1 180px; min-width: 130px; }
     .cs-row label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
     .cs-hint { color: var(--muted); font-size: 12px; margin: -8px 0 4px; }
+    .cs-row .field.grow { flex: 1 1 340px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 34px; padding: 6px; background: #121218; border: 1px solid var(--border); border-radius: 6px; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; background: #2a2a35; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; font-size: 13px; }
+    .chip .x { cursor: pointer; color: var(--danger); font-weight: 700; }
+    .chip-add { display: flex; gap: 6px; margin-top: 6px; }
+    .chip-add select { flex: 1; }
+    .btn-mini.add { background: var(--accent); color: #04141d; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>桌宠配置</h1>
-    <p class="sub">任务状态决定头顶气泡文字与颜色；角色状态决定点击 / 拖动 / 超时 / 默认待机播放哪个角色动作；角色动作是精灵动画帧序列。改完点「保存」即时生效；帧变动需「重启桌宠」加载。</p>
+    <p class="sub">任务状态决定头顶气泡文字与颜色；角色状态以「鼠标状态」为底层（默认 / 点击 / 拖动 / 超时），每个状态挂一个或多个角色动作（多个 = 随机）；角色动作是精灵动画帧序列。改完点「保存」即时生效；帧变动需「重启桌宠」加载。</p>
 
     <section>
       <h2>任务状态 Task Statuses</h2>
@@ -67,27 +74,33 @@
 
     <section>
       <h2>角色状态 Character State</h2>
-      <p class="cs-hint">把「角色动作」挂到桌宠的各个状态上；下拉选项即下方「角色动作」表里的动作。</p>
+      <p class="cs-hint">以「鼠标状态」为底层：每个状态挂一个或多个角色动作，「状态开始」多个则随机播放。</p>
 
       <div class="cs-row">
-        <div class="field"><label>默认待机动作（平时一直播放）</label><select id="cs-default"></select></div>
+        <div class="field"><label>默认 default · 常驻动作</label><select id="cs-default"></select></div>
       </div>
 
       <div class="cs-row">
-        <div class="field"><label>点击后播放</label><select id="cs-click-to"></select></div>
-        <div class="field"><label>点击后返回</label><select id="cs-click-return"></select></div>
-        <div class="field"><label>点击持续（毫秒）</label><input type="number" id="cs-click-ms" min="0" step="100" /></div>
+        <div class="field grow"><label>点击 click · 状态开始（多个 = 随机）</label>
+          <div class="chips" id="cs-click-play"></div>
+          <div class="chip-add"><select id="cs-click-add"></select><button class="btn-mini add" data-add-play="click">＋添加</button></div>
+        </div>
+        <div class="field"><label>状态末（点击后返回）</label><select id="cs-click-return"></select></div>
+        <div class="field"><label>持续 ms</label><input type="number" id="cs-click-ms" min="0" step="100" /></div>
       </div>
 
       <div class="cs-row">
-        <div class="field"><label>拖动中播放</label><select id="cs-drag-during"></select></div>
-        <div class="field"><label>拖动松开后</label><select id="cs-drag-after"></select></div>
+        <div class="field grow"><label>拖动 drag · 状态开始（多个 = 随机）</label>
+          <div class="chips" id="cs-drag-play"></div>
+          <div class="chip-add"><select id="cs-drag-add"></select><button class="btn-mini add" data-add-play="drag">＋添加</button></div>
+        </div>
+        <div class="field"><label>状态末（松开后）</label><select id="cs-drag-return"></select></div>
       </div>
 
       <div class="cs-row">
-        <div class="field"><label>超时前动作（从）</label><select id="cs-timeout-from"></select></div>
-        <div class="field"><label>超时后动作（到）</label><select id="cs-timeout-to"></select></div>
-        <div class="field"><label>空闲多久超时（毫秒）</label><input type="number" id="cs-timeout-ms" min="0" step="1000" /></div>
+        <div class="field"><label>超时 timeout · 超时前（停留动作）</label><select id="cs-timeout-before"></select></div>
+        <div class="field"><label>超时后（进入动作）</label><select id="cs-timeout-after"></select></div>
+        <div class="field"><label>空闲时长 ms</label><input type="number" id="cs-timeout-ms" min="0" step="1000" /></div>
       </div>
     </section>
 
@@ -144,14 +157,18 @@
       render()
     }
 
-    // 补齐缺失的字段，避免旧配置缺 triggers 时报错
+    // 补齐缺失字段（角色状态以鼠标状态为底层）
     function normalize() {
-      config.defaultAction = config.defaultAction || 'idle'
-      config.triggers = config.triggers || {}
-      const t = config.triggers
-      t.drag = t.drag || { during: 'walk', after: 'idle' }
-      t.clickIdle = t.clickIdle || { to: 'happy', returnTo: 'idle', afterMs: 2000 }
-      t.timeout = t.timeout || { from: 'idle', to: 'sleep', afterMs: 15000 }
+      config.statusActionMs = config.statusActionMs ?? 2000
+      config.characterStates = config.characterStates || {}
+      const cs = config.characterStates
+      cs.default = cs.default || { play: ['idle'] }
+      cs.click = cs.click || { play: ['happy'], returnTo: 'idle', afterMs: 2000 }
+      cs.drag = cs.drag || { play: ['walk'], returnTo: 'idle' }
+      cs.timeout = cs.timeout || { before: 'idle', after: 'sleep', afterMs: 12000 }
+      for (const k of ['default', 'click', 'drag']) {
+        if (!Array.isArray(cs[k].play)) cs[k].play = [cs[k].play].filter(Boolean)
+      }
     }
 
     // 动作下拉选项（显示中文标签，缺标签时退回动作名）
@@ -161,8 +178,17 @@
       ).join('')
     }
 
+    function actionLabel(id) {
+      const a = config.actions[id]
+      return a ? (a.label || id) : id
+    }
+    function renderChips(containerId, actions) {
+      document.getElementById(containerId).innerHTML = (actions || []).map(a =>
+        `<span class="chip" data-chip="${a}">${escapeHtml(actionLabel(a))}<span class="x" data-rm="${a}">×</span></span>`
+      ).join('')
+    }
+
     function render() {
-      const T = config.triggers
       // 状态表
       const actionOptions = ['<option value="">(无)</option>', ...Object.keys(config.actions).map(a => `<option value="${a}">${a}</option>`)].join('')
       const sb = document.getElementById('statuses-body')
@@ -188,15 +214,18 @@
           <td><button class="btn-mini" data-del-action="${id}">删除</button></td>
         </tr>`).join('')
       // 角色状态
-      document.getElementById('cs-default').innerHTML = actionSelect(config.defaultAction)
-      document.getElementById('cs-click-to').innerHTML = actionSelect(T.clickIdle.to)
-      document.getElementById('cs-click-return').innerHTML = actionSelect(T.clickIdle.returnTo)
-      document.getElementById('cs-click-ms').value = T.clickIdle.afterMs
-      document.getElementById('cs-drag-during').innerHTML = actionSelect(T.drag.during)
-      document.getElementById('cs-drag-after').innerHTML = actionSelect(T.drag.after)
-      document.getElementById('cs-timeout-from').innerHTML = actionSelect(T.timeout.from)
-      document.getElementById('cs-timeout-to').innerHTML = actionSelect(T.timeout.to)
-      document.getElementById('cs-timeout-ms').value = T.timeout.afterMs
+      const cs = config.characterStates
+      document.getElementById('cs-default').innerHTML = actionSelect(cs.default.play[0])
+      renderChips('cs-click-play', cs.click.play)
+      document.getElementById('cs-click-add').innerHTML = actionSelect('')
+      document.getElementById('cs-click-return').innerHTML = actionSelect(cs.click.returnTo)
+      document.getElementById('cs-click-ms').value = cs.click.afterMs
+      renderChips('cs-drag-play', cs.drag.play)
+      document.getElementById('cs-drag-add').innerHTML = actionSelect('')
+      document.getElementById('cs-drag-return').innerHTML = actionSelect(cs.drag.returnTo)
+      document.getElementById('cs-timeout-before').innerHTML = actionSelect(cs.timeout.before)
+      document.getElementById('cs-timeout-after').innerHTML = actionSelect(cs.timeout.after)
+      document.getElementById('cs-timeout-ms').value = cs.timeout.afterMs
       // 帧管理动作下拉
       const fa = document.getElementById('frame-action')
       const prev = fa.value
@@ -219,6 +248,25 @@
     }
 
     document.getElementById('frame-action').addEventListener('change', (e) => renderFrames(e.target.value))
+
+    // 角色状态随机池：chip 删除 / 添加动作
+    for (const key of ['click', 'drag']) {
+      document.getElementById(`cs-${key}-play`).addEventListener('click', (e) => {
+        const rm = e.target.closest('[data-rm]')
+        if (!rm) return
+        const pool = config.characterStates[key].play
+        config.characterStates[key].play = pool.filter((a) => a !== rm.dataset.rm)
+        renderChips(`cs-${key}-play`, config.characterStates[key].play)
+      })
+      document.querySelector(`[data-add-play="${key}"]`).addEventListener('click', () => {
+        const select = document.getElementById(`cs-${key}-add`)
+        const v = select.value
+        if (!v) return
+        const pool = config.characterStates[key].play
+        if (!pool.includes(v)) pool.push(v)
+        renderChips(`cs-${key}-play`, pool)
+      })
+    }
 
     async function readFileBase64(file) {
       return new Promise((resolve, reject) => {
@@ -290,15 +338,14 @@
     // 收集某动作被引用的位置（用于删除前提示）
     function collectRefs(action) {
       const refs = []
-      if (config.defaultAction === action) refs.push('默认待机')
+      const cs = config.characterStates || {}
+      if ((cs.default?.play || []).includes(action)) refs.push('默认')
       for (const [sid, s] of Object.entries(config.statuses)) {
         if (s.action === action) refs.push(`任务状态「${STATUS_MEANING[sid] ?? sid}」`)
       }
-      const t = config.triggers || {}
-      if (t.drag && (t.drag.during === action || t.drag.after === action)) refs.push('拖动')
-      if (t.clickIdle && (t.clickIdle.to === action || t.clickIdle.returnTo === action)) refs.push('点击')
-      if (t.wake && (t.wake.to === action || (Array.isArray(t.wake.from) && t.wake.from.includes(action)))) refs.push('唤醒')
-      if (t.timeout && (t.timeout.from === action || t.timeout.to === action)) refs.push('超时')
+      if ((cs.click?.play || []).includes(action) || cs.click?.returnTo === action) refs.push('点击')
+      if ((cs.drag?.play || []).includes(action) || cs.drag?.returnTo === action) refs.push('拖动')
+      if (cs.timeout?.before === action || cs.timeout?.after === action) refs.push('超时')
       return refs
     }
 
@@ -342,15 +389,16 @@
         else if (el.dataset.field === 'fps') a.fps = Number(v)
       }
       // 收集角色状态编辑
-      config.defaultAction = document.getElementById('cs-default').value
-      config.triggers.clickIdle.to = document.getElementById('cs-click-to').value
-      config.triggers.clickIdle.returnTo = document.getElementById('cs-click-return').value
-      config.triggers.clickIdle.afterMs = Number(document.getElementById('cs-click-ms').value)
-      config.triggers.drag.during = document.getElementById('cs-drag-during').value
-      config.triggers.drag.after = document.getElementById('cs-drag-after').value
-      config.triggers.timeout.from = document.getElementById('cs-timeout-from').value
-      config.triggers.timeout.to = document.getElementById('cs-timeout-to').value
-      config.triggers.timeout.afterMs = Number(document.getElementById('cs-timeout-ms').value)
+      const cs = config.characterStates
+      cs.default.play = [document.getElementById('cs-default').value]
+      cs.click.play = [...document.querySelectorAll('#cs-click-play .chip')].map((c) => c.dataset.chip)
+      cs.click.returnTo = document.getElementById('cs-click-return').value
+      cs.click.afterMs = Number(document.getElementById('cs-click-ms').value)
+      cs.drag.play = [...document.querySelectorAll('#cs-drag-play .chip')].map((c) => c.dataset.chip)
+      cs.drag.returnTo = document.getElementById('cs-drag-return').value
+      cs.timeout.before = document.getElementById('cs-timeout-before').value
+      cs.timeout.after = document.getElementById('cs-timeout-after').value
+      cs.timeout.afterMs = Number(document.getElementById('cs-timeout-ms').value)
       const res = await fetch(API, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(config) })
       if (res.ok) { msg('已保存', false); render() } else { msg('保存失败', true) }
     })

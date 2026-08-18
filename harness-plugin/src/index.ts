@@ -347,31 +347,32 @@ export function apply(ctx: Context, config: Config = {}): void {
           const actions = (cfg.actions ?? {}) as Record<string, { label?: string; fps?: number; folder: string; count: number; intro?: [number, number] }>
           if (!actions[action]) throw new Error(`动作 "${action}" 不存在`)
 
-          // 计算回退动作：优先 idle，其次 defaultAction，再次任意剩余动作
+          // 计算回退动作：优先 idle，其次任意剩余动作
           const rest = Object.keys(actions).filter((k) => k !== action)
           if (rest.length === 0) throw new Error('不能删除最后一个动作')
-          const fallback = rest.includes('idle') ? 'idle'
-            : rest.includes(String(cfg.defaultAction)) ? String(cfg.defaultAction)
-              : rest[0]
+          const fallback = rest.includes('idle') ? 'idle' : rest[0]
 
-          // 回退引用：任务状态的触发动作置空；其余必填动作位回退到 fallback
-          if (cfg.defaultAction === action) cfg.defaultAction = fallback
+          // 回退引用（v3：characterStates）
+          const cs = (cfg.characterStates ?? {}) as Record<string, { play?: unknown[]; returnTo?: unknown; before?: unknown; after?: unknown }>
+          const repointPlay = (key: string): void => {
+            const st = cs[key]
+            if (!st || !Array.isArray(st.play)) return
+            st.play = st.play.filter((a) => a !== action)
+            if (st.play.length === 0) st.play = [fallback]
+          }
+          repointPlay('default')
+          repointPlay('click')
+          repointPlay('drag')
+          if (cs.click && cs.click.returnTo === action) cs.click.returnTo = fallback
+          if (cs.drag && cs.drag.returnTo === action) cs.drag.returnTo = fallback
+          if (cs.timeout) {
+            if (cs.timeout.before === action) cs.timeout.before = fallback
+            if (cs.timeout.after === action) cs.timeout.after = fallback
+          }
           const statuses = (cfg.statuses ?? {}) as Record<string, { action?: string | null }>
           for (const s of Object.values(statuses)) {
             if (s.action === action) s.action = null
           }
-          const t = (cfg.triggers ?? {}) as Record<string, unknown>
-          const repoint = (obj: Record<string, unknown>, key: string): void => {
-            if (obj[key] === action) obj[key] = fallback
-          }
-          if (t.drag) { repoint(t.drag as Record<string, unknown>, 'during'); repoint(t.drag as Record<string, unknown>, 'after') }
-          if (t.clickIdle) { repoint(t.clickIdle as Record<string, unknown>, 'to'); repoint(t.clickIdle as Record<string, unknown>, 'returnTo') }
-          if (t.wake) {
-            const wake = t.wake as Record<string, unknown>
-            if (Array.isArray(wake.from)) wake.from = wake.from.filter((v) => v !== action)
-            if (wake.to === action) wake.to = fallback
-          }
-          if (t.timeout) { repoint(t.timeout as Record<string, unknown>, 'from'); repoint(t.timeout as Record<string, unknown>, 'to') }
 
           // 删动作条目 + 帧目录（目录名不安全时跳过文件删除，仅删配置）
           const folder = actions[action].folder

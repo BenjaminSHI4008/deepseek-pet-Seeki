@@ -1,7 +1,8 @@
-// 渲染层：配置驱动的 2D 精灵（v2：statuses + actions + triggers）
+// 渲染层：配置驱动的 2D 精灵（v3：statuses + actions + characterStates）
 // 状态维度已拆分：
 //   - 任务状态（statuses，来自 harness）：running/completed/terminated/offline → 决定气泡文字
 //   - 角色动作（actions，桌宠动画）：idle/happy/walk/sleep → 决定精灵动画
+//   - 角色状态（characterStates，鼠标状态驱动）：默认/点击/拖动/超时 → 决定何时播哪个动作
 const canvas = document.getElementById('pet')
 const ctx = canvas.getContext('2d')
 const SCALE = 1.5
@@ -16,7 +17,8 @@ const config = await (await fetch('./pet.config.json')).json()
 const DIR = config.direction
 const ROOT = 'Deepseek'
 const STATUSES = config.statuses
-const T = config.triggers
+const CS = config.characterStates ?? {}
+const STATUS_ACTION_MS = config.statusActionMs ?? 2000
 
 // 构建动作：intro（入场帧，播一次）+ loop（循环帧）
 function framePaths(folder, count) {
@@ -61,25 +63,32 @@ for (const [name, a] of Object.entries(ACTIONS)) {
     delete ACTIONS[name]
   }
 }
-// 兜底：defaultAction 不存在时回退到 idle / 任意可用动作
-if (!ACTIONS[config.defaultAction]) {
-  config.defaultAction = ACTIONS.idle ? 'idle' : Object.keys(ACTIONS)[0]
+// 默认待机动作（characterStates.default.play[0]），不存在时回退到 idle / 任意可用动作
+let defaultAction = (CS.default?.play?.[0]) ?? 'idle'
+if (!ACTIONS[defaultAction]) {
+  defaultAction = ACTIONS.idle ? 'idle' : Object.keys(ACTIONS)[0]
 }
-if (!config.defaultAction) {
+if (!defaultAction) {
   console.error('[pet] 没有任何可用精灵帧，请检查 Deepseek/animations/ 与 pet.config.json')
   bubble.textContent = 'No sprites'
   bubble.style.color = '#ff5252'
   bubble.className = 'show'
   throw new Error('no valid sprite frames')
 }
-const fallbackAction = (name) => (ACTIONS[name] ? name : config.defaultAction)
+const fallbackAction = (name) => (ACTIONS[name] ? name : defaultAction)
 
-// ── 状态机（动作 = 角色状态，intro 播一次后进入 loop 循环）──────────
-let state = config.defaultAction
+// 从一个「状态开始」动作池里随机选一个（过滤掉已删除的动作，空则回退默认）
+function pickPlay(list) {
+  const valid = (Array.isArray(list) ? list : []).filter((a) => ACTIONS[a])
+  if (valid.length === 0) return defaultAction
+  return valid[Math.floor(Math.random() * valid.length)]
+}
+
+// ── 状态机（动作 = 角色动作，intro 播一次后进入 loop 循环）──────────
+let state = defaultAction
 let phase = ACTIONS[state].intro.length > 0 ? 'intro' : 'loop'
 let frameIdx = 0
 let lastFrameTime = 0
-let sleepDeadline = 0
 
 const cur = () => ACTIONS[state]
 const curFrames = () => (phase === 'intro' ? cur().intro : cur().loop)
@@ -102,9 +111,8 @@ function setState(s) {
   cancelSleep()
   cancelReturn()
   cancelStatusAction()
-  if (s === T.timeout.from) {
-    sleepDeadline = performance.now() + T.timeout.afterMs
-    sleepTimer = setTimeout(() => setState(T.timeout.to), T.timeout.afterMs)
+  if (s === CS.timeout.before) {
+    sleepTimer = setTimeout(() => setState(CS.timeout.after), CS.timeout.afterMs)
   }
 }
 
@@ -147,7 +155,7 @@ let pendingAction = null
 function triggerStatusAction(action) {
   if (!stateMachineReady) { pendingAction = action; return }
   setState(action)
-  statusActionTimer = setTimeout(() => { if (state === action) setState(config.defaultAction) }, T.statusActionMs ?? 2000)
+  statusActionTimer = setTimeout(() => { if (state === action) setState(defaultAction) }, STATUS_ACTION_MS)
 }
 
 function renderStatus() {
@@ -184,7 +192,7 @@ function renderStatus() {
   }
 }
 
-// ── 拖拽 / 点击（拖拽通过 IPC 移动窗口；点击用于状态切换）──────────────
+// ── 鼠标状态：拖动 / 点击（拖拽通过 IPC 移动窗口）──────────────
 let dragging = false
 let moved = false
 let downState = null
@@ -196,22 +204,24 @@ canvas.addEventListener('mousedown', (e) => {
   downState = state
   dragStart = { x: e.screenX, y: e.screenY }
   window.petAPI.dragStart(e.screenX, e.screenY)
-  if (T.wake.from.includes(state)) setState(T.wake.to) // 按下即唤醒
+  if (state === CS.timeout.after) setState(CS.timeout.before) // 睡觉中按下 → 唤醒
 })
 window.addEventListener('mousemove', (e) => {
   if (!dragging) return
   if (!moved && Math.hypot(e.screenX - dragStart.x, e.screenY - dragStart.y) > 4) {
     moved = true
-    setState(T.drag.during) // 角色拖动 → 走路
+    setState(pickPlay(CS.drag.play)) // 拖动 → 随机播放拖动动作
   }
   if (moved) window.petAPI.dragMove(e.screenX, e.screenY)
 })
 window.addEventListener('mouseup', () => {
-  if (dragging && moved) setState(T.drag.after) // 松手 → 角色待机
-  else if (dragging && !moved && downState === T.timeout.from && state === T.timeout.from) {
-    // 角色点击（待机时单击）→ 开心，片刻后回待机
-    setState(T.clickIdle.to)
-    returnTimer = setTimeout(() => { if (state === T.clickIdle.to) setState(T.clickIdle.returnTo) }, T.clickIdle.afterMs)
+  if (dragging && moved) {
+    setState(CS.drag.returnTo) // 松开 → 状态末
+  } else if (dragging && !moved && downState === defaultAction && state === defaultAction) {
+    // 单击（待机时）→ 随机播放点击动作，片刻后回状态末
+    const action = pickPlay(CS.click.play)
+    setState(action)
+    returnTimer = setTimeout(() => { if (state === action) setState(CS.click.returnTo) }, CS.click.afterMs ?? 2000)
   }
   dragging = false
 })
@@ -221,7 +231,7 @@ latestStatus = await window.petAPI.getStatus() // 同步主进程当前状态（
 configLoaded = true
 renderStatus()
 stateMachineReady = true
-setState(config.defaultAction)
+setState(defaultAction)
 if (pendingAction) {
   const a = pendingAction
   pendingAction = null
