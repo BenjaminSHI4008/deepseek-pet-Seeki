@@ -13,6 +13,7 @@ PLUGIN_DIR="$NM_DIR/dsh-pet-status"
 mkdir -p "$PLUGIN_DIR/src"
 cp "$PET_REPO/harness-plugin/src/index.ts" "$PLUGIN_DIR/src/index.ts"
 cp "$PET_REPO/harness-plugin/package.json" "$PLUGIN_DIR/package.json"
+cp "$PET_REPO/harness-plugin/settings.html" "$PLUGIN_DIR/settings.html"
 
 # 2) 把插件名写进 profile 的依赖清单（resolver manifest）
 node - "$WEB_DIR/package.json" <<'NODE'

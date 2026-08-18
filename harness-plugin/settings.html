@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>桌宠配置</title>
+  <style>
+    :root { --bg: #141419; --card: #1d1d24; --border: #2e2e38; --text: #e8e8ee; --muted: #9a9aa6; --accent: #4fc3f7; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.6 -apple-system, "PingFang SC", "Segoe UI", sans-serif; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 24px; font-size: 13px; }
+    section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    h2 { font-size: 16px; margin: 0 0 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; }
+    tr:last-child td { border-bottom: none; }
+    input[type=text], input[type=number] {
+      width: 100%; padding: 6px 8px; background: #121218; border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font: inherit;
+    }
+    input[type=color] { width: 40px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: #121218; }
+    select { width: 100%; padding: 6px 8px; background: #121218; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; }
+    .color-cell { display: flex; align-items: center; gap: 8px; }
+    .swatch { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--border); flex: none; }
+    .bar { display: flex; align-items: center; justify-content: space-between; }
+    .btn {
+      background: var(--accent); color: #04141d; border: none; border-radius: 8px;
+      padding: 10px 20px; font: 600 14px inherit; cursor: pointer;
+    }
+    .btn:hover { opacity: .9; }
+    #status-msg { margin-left: 12px; font-size: 13px; color: var(--muted); }
+    #status-msg.ok { color: #7ed957; }
+    #status-msg.err { color: #ff5252; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>桌宠配置</h1>
+    <p class="sub">状态（Statuses）驱动头顶气泡文字与颜色；动作（Actions）是精灵动画帧序列。改完点「保存」即时生效。</p>
+
+    <section>
+      <h2>状态 Statuses</h2>
+      <table>
+        <thead><tr><th style="width:120px">状态</th><th>气泡文字</th><th style="width:120px">颜色</th><th style="width:140px">触发动作</th></tr></thead>
+        <tbody id="statuses-body"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>动作 Actions</h2>
+      <table>
+        <thead><tr><th style="width:100px">动作</th><th>标签</th><th>帧目录</th><th style="width:90px">帧长 count</th><th style="width:90px">帧率 fps</th></tr></thead>
+        <tbody id="actions-body"></tbody>
+      </table>
+    </section>
+
+    <div class="bar">
+      <button class="btn" id="save">保存配置</button>
+      <span id="status-msg"></span>
+    </div>
+  </div>
+
+  <script>
+    let config = null
+    const API = '/api/pet.config'
+
+    async function load() {
+      const res = await fetch(API)
+      if (!res.ok) { msg('配置加载失败', true); return }
+      config = await res.json()
+      render()
+    }
+
+    function render() {
+      // 状态表
+      const actionOptions = ['<option value="">(无)</option>', ...Object.keys(config.actions).map(a => `<option value="${a}">${a}</option>`)].join('')
+      const sb = document.getElementById('statuses-body')
+      sb.innerHTML = Object.entries(config.statuses).map(([id, s]) => `
+        <tr>
+          <td><code>${id}</code></td>
+          <td><input type="text" data-status="${id}" data-field="text" value="${escapeHtml(s.text)}" /></td>
+          <td><div class="color-cell">
+            <span class="swatch" style="background:${s.color}"></span>
+            <input type="color" data-status="${id}" data-field="color" value="${s.color}" />
+          </div></td>
+          <td><select data-status="${id}" data-field="action">${actionOptions.replace(`value="${s.action ?? ''}"`, `value="${s.action ?? ''}" selected`)}</select></td>
+        </tr>`).join('')
+      // 动作表
+      const ab = document.getElementById('actions-body')
+      ab.innerHTML = Object.entries(config.actions).map(([id, a]) => `
+        <tr>
+          <td><code>${id}</code></td>
+          <td><input type="text" data-action="${id}" data-field="label" value="${escapeHtml(a.label)}" /></td>
+          <td><input type="text" data-action="${id}" data-field="folder" value="${escapeHtml(a.folder)}" /></td>
+          <td><input type="number" min="1" data-action="${id}" data-field="count" value="${a.count}" /></td>
+          <td><input type="number" min="0.1" step="0.1" data-action="${id}" data-field="fps" value="${a.fps}" /></td>
+        </tr>`).join('')
+    }
+
+    document.getElementById('save').addEventListener('click', async () => {
+      // 收集状态编辑
+      for (const el of document.querySelectorAll('[data-status]')) {
+        const s = config.statuses[el.dataset.status]
+        const v = el.value
+        if (el.dataset.field === 'text') s.text = v
+        else if (el.dataset.field === 'color') s.color = v
+        else if (el.dataset.field === 'action') s.action = v || null
+      }
+      // 收集动作编辑
+      for (const el of document.querySelectorAll('[data-action]')) {
+        const a = config.actions[el.dataset.action]
+        const v = el.value
+        if (el.dataset.field === 'label') a.label = v
+        else if (el.dataset.field === 'folder') a.folder = v
+        else if (el.dataset.field === 'count') a.count = Number(v)
+        else if (el.dataset.field === 'fps') a.fps = Number(v)
+      }
+      const res = await fetch(API, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(config) })
+      if (res.ok) { msg('已保存', false); render() } else { msg('保存失败', true) }
+    })
+
+    function msg(text, isErr) {
+      const el = document.getElementById('status-msg')
+      el.textContent = text
+      el.className = isErr ? 'err' : 'ok'
+    }
+    function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;') }
+
+    load()
+  </script>
+</body>
+</html>

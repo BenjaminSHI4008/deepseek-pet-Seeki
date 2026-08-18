@@ -20,6 +20,7 @@ import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import { readFile, writeFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import WebSocket, { WebSocketServer } from 'ws'
@@ -192,6 +193,28 @@ export function apply(ctx: Context, config: Config = {}): void {
       },
     }), 'pet-status: config API')
   }
+
+  // Web 配置管理页面（/pet/settings）
+  const settingsHtmlPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../settings.html')
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'exact',
+    path: '/pet/settings',
+    handler: async (req: IncomingMessage, res: ServerResponse) => {
+      if (req.method !== 'GET') {
+        res.writeHead(405)
+        res.end()
+        return
+      }
+      try {
+        const html = await readFile(settingsHtmlPath, 'utf8')
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+        res.end(html)
+      } catch {
+        res.writeHead(404)
+        res.end('settings page not found')
+      }
+    },
+  }), 'pet-status: settings page')
 
   // 自动拉起桌宠子进程。
   if (config.autoStart && config.petDir) {
