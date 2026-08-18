@@ -1,15 +1,10 @@
 /**
- * dsh-pet-status — DeepSeek Harness 桌宠状态广播插件。
+ * dsh-pet-status — DeepSeek Harness 桌宠状态广播插件（兼桌宠管理器）。
  *
- * 1) 订阅 host 事件流里的 `host/session-status`（agent running 翻转），把状态收敛为两态：
- *    - `working`：至少一个会话在运行（agent 工作中）；
- *    - `idle`：没有会话在运行（任务完成 / 空闲）。
- * 2) 经本地 WebSocket 广播状态。
- * 3) （可选）启动时自动拉起桌宠（Electron 子进程），退出时一并关闭 —— 实现
- *    「`pnpm dsh web` 时桌宠同步启动」。
- *
- * WebSocket 协议（JSON 文本帧）：
- *   服务器 → 客户端：{ "type": "status", "status": "working" | "idle" }
+ * 1) 订阅事件流，把 agent 活动收敛为 working / idle / terminated 并广播；
+ * 2) 经本地 WebSocket 广播状态；
+ * 3) 自动拉起桌宠（Electron 子进程），退出/重启时一并管理；
+ * 4) 提供桌宠管理 HTTP API：配置读写、帧上传/预览、重启。
  *
  * @module dsh-pet-status
  */
@@ -19,7 +14,7 @@ import z from '@deepseek-ai/schemastery'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, readdir, unlink } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
@@ -53,8 +48,29 @@ export const Config: z<Config> = z.object({
 /** 桌宠活动状态。 */
 export type PetStatus = 'idle' | 'working' | 'terminated'
 
+/** 读取请求体为 UTF-8 文本。 */
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    req.on('error', reject)
+  })
+}
+
+/** 把动作名净化为安全的目录名。 */
+function sanitizeFolder(name: string): string {
+  return String(name).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'action'
+}
+
+/** 响应 JSON。 */
+function json(res: ServerResponse, code: number, value: unknown): void {
+  res.writeHead(code, { 'content-type': 'application/json' })
+  res.end(JSON.stringify(value))
+}
+
 /**
- * Mounts the status broadcaster (and optionally the pet subprocess).
+ * Mounts the status broadcaster and the pet manager APIs.
  * @param ctx - Plugin context carrying webServer + apiProxy.
  * @param config - resolved {@link Config}.
  */
@@ -112,16 +128,16 @@ export function apply(ctx: Context, config: Config = {}): void {
         if (payload.type === 'host/session-status') {
           if (payload.running) {
             running.add(payload.sessionId)
-            terminated = false // 新 turn 开始
+            terminated = false
             if (endedTimer) { clearTimeout(endedTimer); endedTimer = null }
             broadcast()
           } else {
             running.delete(payload.sessionId)
-            if (running.size === 0) scheduleEnded() // 延迟一拍，等 turn/end
+            if (running.size === 0) scheduleEnded()
             else broadcast()
           }
         } else if (payload.type === 'host/agent-error') {
-          terminated = true // 崩溃类错误（无 turn 位置）
+          terminated = true
         }
       }
     })().catch(() => {})
@@ -138,11 +154,9 @@ export function apply(ctx: Context, config: Config = {}): void {
     handler: (req: IncomingMessage, socket: Duplex, head: Buffer) => {
       server.handleUpgrade(req, socket, head, (ws) => {
         clients.add(ws)
-        // 连上即推当前状态，避免客户端空窗。
         ws.send(JSON.stringify({ type: 'status', status: current() }))
         ws.on('close', () => clients.delete(ws))
         ws.on('error', () => clients.delete(ws))
-        // v1 忽略客户端上行；v2 在此接「桌宠输入 → harness」。
         ws.on('message', () => {})
       })
     },
@@ -154,8 +168,38 @@ export function apply(ctx: Context, config: Config = {}): void {
     server.close()
   }, 'pet-status: cleanup')
 
-  // 配置管理 API（插件作为桌宠管理器，读写 <petDir>/pet.config.json）
-  const configFile = config.petDir ? path.join(config.petDir, 'pet.config.json') : ''
+  // ── 桌宠子进程管理 ────────────────────────────────────────────────
+  const petDir = config.petDir ?? ''
+  const configFile = petDir ? path.join(petDir, 'pet.config.json') : ''
+  let petChild: ChildProcess | null = null
+
+  const readConfig = async (): Promise<Record<string, unknown> | null> => {
+    if (!configFile) return null
+    try {
+      return JSON.parse(await readFile(configFile, 'utf8'))
+    } catch {
+      return null
+    }
+  }
+  const writeConfig = async (cfg: unknown): Promise<void> => {
+    await writeFile(configFile, JSON.stringify(cfg, null, 2) + '\n')
+  }
+  const startPet = (): void => {
+    if (!config.autoStart || !petDir || petChild) return
+    const electronBin = path.join(petDir, 'node_modules', '.bin', 'electron')
+    const wsUrl = `ws://127.0.0.1:${String(ctx.webServer.port)}${pathname}`
+    petChild = spawn(electronBin, ['.'], {
+      cwd: petDir,
+      env: { ...process.env, PET_WS_URL: wsUrl },
+      stdio: 'ignore',
+    })
+    petChild.on('error', (error) => { console.error('[pet-status] 拉起桌宠失败：', error) })
+  }
+  const stopPet = (): void => {
+    if (petChild) { petChild.kill(); petChild = null }
+  }
+
+  // ── 配置管理 API ──────────────────────────────────────────────────
   if (configFile) {
     ctx.effect(() => ctx.webServer.register({
       kind: 'exact',
@@ -167,24 +211,15 @@ export function apply(ctx: Context, config: Config = {}): void {
             res.writeHead(200, { 'content-type': 'application/json' })
             res.end(text)
           } catch {
-            res.writeHead(404, { 'content-type': 'application/json' })
-            res.end('{"ok":false,"error":"config not found"}')
+            json(res, 404, { ok: false, error: 'config not found' })
           }
         } else if (req.method === 'PUT') {
-          const body = await new Promise<string>((resolve, reject) => {
-            const chunks: Buffer[] = []
-            req.on('data', (c: Buffer) => chunks.push(c))
-            req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
-            req.on('error', reject)
-          })
           try {
-            const cfg = JSON.parse(body)
-            await writeFile(configFile, JSON.stringify(cfg, null, 2) + '\n')
-            res.writeHead(200, { 'content-type': 'application/json' })
-            res.end('{"ok":true}')
+            const cfg = JSON.parse(await readBody(req))
+            await writeConfig(cfg)
+            json(res, 200, { ok: true })
           } catch (error) {
-            res.writeHead(400, { 'content-type': 'application/json' })
-            res.end(JSON.stringify({ ok: false, error: String(error) }))
+            json(res, 400, { ok: false, error: String(error) })
           }
         } else {
           res.writeHead(405)
@@ -194,17 +229,100 @@ export function apply(ctx: Context, config: Config = {}): void {
     }), 'pet-status: config API')
   }
 
+  // ── 帧上传 / 预览 / 重启 API ──────────────────────────────────────
+  if (configFile && petDir) {
+    // 上传/替换某动作的帧序列
+    ctx.effect(() => ctx.webServer.register({
+      kind: 'exact',
+      path: '/api/pet.frames',
+      handler: async (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'POST') { res.writeHead(405); res.end(); return }
+        try {
+          const { action, label, fps, frames } = JSON.parse(await readBody(req))
+          if (typeof action !== 'string' || !action) throw new Error('action 必填')
+          if (!Array.isArray(frames) || frames.length === 0) throw new Error('frames 至少一张')
+
+          const cfg = await readConfig()
+          if (cfg === null) throw new Error('config not found')
+          const actions = (cfg.actions ?? {}) as Record<string, { label?: string; fps?: number; folder: string; count: number; intro?: [number, number] }>
+          const existing = actions[action]
+          const folder = existing?.folder ?? sanitizeFolder(action)
+
+          // 写帧
+          const frameDir = path.join(petDir, 'Deepseek', 'animations', folder, 'south')
+          await mkdir(frameDir, { recursive: true })
+          for (const f of await readdir(frameDir).catch(() => [])) {
+            if (f.endsWith('.png')) await unlink(path.join(frameDir, f))
+          }
+          for (let i = 0; i < frames.length; i++) {
+            const data = (frames[i] as { data?: unknown })?.data
+            if (typeof data !== 'string') throw new Error(`frame ${i} 缺少 data`)
+            const buf = Buffer.from(data, 'base64')
+            if (buf.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw new Error(`frame ${i} 不是 PNG`)
+            await writeFile(path.join(frameDir, `frame_${String(i).padStart(3, '0')}.png`), buf)
+          }
+
+          // 更新配置（替换帧时清掉 intro，新动作无 intro）
+          actions[action] = {
+            label: label !== undefined ? String(label) : (existing?.label ?? action),
+            fps: fps !== undefined ? Number(fps) : (existing?.fps ?? 5),
+            folder,
+            count: frames.length,
+          }
+          cfg.actions = actions
+          await writeConfig(cfg)
+          json(res, 200, { ok: true, action, folder, count: frames.length })
+        } catch (error) {
+          json(res, 400, { ok: false, error: String(error) })
+        }
+      },
+    }), 'pet-status: frames API')
+
+    // 帧图片预览
+    ctx.effect(() => ctx.webServer.register({
+      kind: 'prefix',
+      path: '/pet/frames',
+      handler: async (req: IncomingMessage, res: ServerResponse) => {
+        const rel = (req.url ?? '').split('?')[0].slice('/pet/frames/'.length)
+        const parts = rel.split('/')
+        if (parts.length !== 2) { res.writeHead(404); res.end(); return }
+        const [folder, file] = parts
+        if (!/^[a-zA-Z0-9_-]+$/.test(folder) || !/^frame_\d{3}\.png$/.test(file)) {
+          res.writeHead(404)
+          res.end()
+          return
+        }
+        try {
+          const buf = await readFile(path.join(petDir, 'Deepseek', 'animations', folder, 'south', file))
+          res.writeHead(200, { 'content-type': 'image/png' })
+          res.end(buf)
+        } catch {
+          res.writeHead(404)
+          res.end()
+        }
+      },
+    }), 'pet-status: frames preview')
+
+    // 重启桌宠（帧/配置改动后热生效）
+    ctx.effect(() => ctx.webServer.register({
+      kind: 'exact',
+      path: '/api/pet.restart',
+      handler: (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'POST') { res.writeHead(405); res.end(); return }
+        stopPet()
+        startPet()
+        json(res, 200, { ok: true })
+      },
+    }), 'pet-status: restart')
+  }
+
   // Web 配置管理页面（/pet/settings）
   const settingsHtmlPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../settings.html')
   ctx.effect(() => ctx.webServer.register({
     kind: 'exact',
     path: '/pet/settings',
     handler: async (req: IncomingMessage, res: ServerResponse) => {
-      if (req.method !== 'GET') {
-        res.writeHead(405)
-        res.end()
-        return
-      }
+      if (req.method !== 'GET') { res.writeHead(405); res.end(); return }
       try {
         const html = await readFile(settingsHtmlPath, 'utf8')
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
@@ -216,20 +334,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     },
   }), 'pet-status: settings page')
 
-  // 自动拉起桌宠子进程。
-  if (config.autoStart && config.petDir) {
-    const electronBin = path.join(config.petDir, 'node_modules', '.bin', 'electron')
-    const wsUrl = `ws://127.0.0.1:${String(ctx.webServer.port)}${pathname}`
-    const child: ChildProcess = spawn(electronBin, ['.'], {
-      cwd: config.petDir,
-      env: { ...process.env, PET_WS_URL: wsUrl },
-      stdio: 'ignore',
-    })
-    child.on('error', (error) => {
-      console.error('[pet-status] 拉起桌宠失败：', error)
-    })
-    ctx.effect(() => () => {
-      child.kill()
-    }, 'pet-status: pet subprocess')
-  }
+  // 生命周期：dispose 时关闭桌宠；启动时拉起
+  ctx.effect(() => () => stopPet(), 'pet-status: pet subprocess')
+  startPet()
 }

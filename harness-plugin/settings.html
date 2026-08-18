@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>桌宠配置</title>
   <style>
-    :root { --bg: #141419; --card: #1d1d24; --border: #2e2e38; --text: #e8e8ee; --muted: #9a9aa6; --accent: #4fc3f7; }
+    :root { --bg: #141419; --card: #1d1d24; --border: #2e2e38; --text: #e8e8ee; --muted: #9a9aa6; --accent: #4fc3f7; --danger: #ff5252; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.6 -apple-system, "PingFang SC", "Segoe UI", sans-serif; }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
     h1 { font-size: 22px; margin: 0 0 4px; }
     .sub { color: var(--muted); margin: 0 0 24px; font-size: 13px; }
     section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
@@ -23,23 +23,32 @@
     }
     input[type=color] { width: 40px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: #121218; }
     select { width: 100%; padding: 6px 8px; background: #121218; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; }
+    input[type=file] { color: var(--muted); font: inherit; }
     .color-cell { display: flex; align-items: center; gap: 8px; }
     .swatch { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--border); flex: none; }
-    .bar { display: flex; align-items: center; justify-content: space-between; }
+    .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .btn {
       background: var(--accent); color: #04141d; border: none; border-radius: 8px;
       padding: 10px 20px; font: 600 14px inherit; cursor: pointer;
     }
     .btn:hover { opacity: .9; }
-    #status-msg { margin-left: 12px; font-size: 13px; color: var(--muted); }
-    #status-msg.ok { color: #7ed957; }
-    #status-msg.err { color: #ff5252; }
+    .btn.danger { background: var(--danger); color: #fff; }
+    #status-msg, #restart-msg { margin-left: 12px; font-size: 13px; color: var(--muted); }
+    #status-msg.ok, #restart-msg.ok { color: #7ed957; }
+    #status-msg.err, #restart-msg.err { color: #ff5252; }
+    .frames-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .frames-grid img { width: 64px; height: 64px; image-rendering: pixelated; background: #0c0c10; border: 1px solid var(--border); border-radius: 6px; }
+    .frames-grid .empty { color: var(--muted); padding: 20px 0; }
+    .frame-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 12px 0; padding-top: 12px; border-top: 1px dashed var(--border); }
+    .frame-row .field { flex: 1 1 160px; min-width: 120px; }
+    .frame-row label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .frame-row .field-file { flex: 1 1 260px; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>桌宠配置</h1>
-    <p class="sub">状态（Statuses）驱动头顶气泡文字与颜色；动作（Actions）是精灵动画帧序列。改完点「保存」即时生效。</p>
+    <p class="sub">状态（Statuses）驱动头顶气泡文字与颜色；动作（Actions）是精灵动画帧序列。改完点「保存」即时生效；帧变动需「重启桌宠」加载。</p>
 
     <section>
       <h2>状态 Statuses</h2>
@@ -57,6 +66,28 @@
       </table>
     </section>
 
+    <section>
+      <h2>动作帧管理 Frames</h2>
+      <div class="frame-row">
+        <div class="field"><label>查看动作</label><select id="frame-action"></select></div>
+        <div class="field field-file"><label>替换帧（PNG 可多选，顺序即播放顺序）</label><input type="file" id="replace-files" accept="image/png" multiple /></div>
+        <div class="field"><label>标签 label（留空沿用原值）</label><input type="text" id="replace-label" /></div>
+        <div class="field"><label>帧率 fps（留空沿用原值）</label><input type="number" id="replace-fps" step="0.1" min="0.1" /></div>
+        <div class="field"><button class="btn" id="replace-btn">上传替换</button></div>
+      </div>
+      <div id="frames-grid" class="frames-grid"></div>
+      <div class="frame-row">
+        <div class="field"><label>新动作名（自动生成帧目录）</label><input type="text" id="new-action-name" placeholder="e.g. wave" /></div>
+        <div class="field field-file"><label>帧（PNG 可多选）</label><input type="file" id="new-action-files" accept="image/png" multiple /></div>
+        <div class="field"><label>帧率 fps（默认 5）</label><input type="number" id="new-action-fps" step="0.1" min="0.1" value="5" /></div>
+        <div class="field"><button class="btn" id="add-action-btn">添加动作</button></div>
+      </div>
+      <div class="bar" style="margin-top:16px">
+        <button class="btn danger" id="restart-btn">重启桌宠</button>
+        <span id="restart-msg"></span>
+      </div>
+    </section>
+
     <div class="bar">
       <button class="btn" id="save">保存配置</button>
       <span id="status-msg"></span>
@@ -65,12 +96,16 @@
 
   <script>
     let config = null
+    let frameBust = 0
     const API = '/api/pet.config'
+    const FRAMES_API = '/api/pet.frames'
+    const RESTART_API = '/api/pet.restart'
 
     async function load() {
       const res = await fetch(API)
       if (!res.ok) { msg('配置加载失败', true); return }
       config = await res.json()
+      frameBust++
       render()
     }
 
@@ -98,7 +133,95 @@
           <td><input type="number" min="1" data-action="${id}" data-field="count" value="${a.count}" /></td>
           <td><input type="number" min="0.1" step="0.1" data-action="${id}" data-field="fps" value="${a.fps}" /></td>
         </tr>`).join('')
+      // 帧管理动作下拉
+      const fa = document.getElementById('frame-action')
+      const prev = fa.value
+      fa.innerHTML = Object.keys(config.actions).map(a => `<option value="${a}">${a}</option>`).join('')
+      if (Object.keys(config.actions).includes(prev)) fa.value = prev
+      renderFrames(fa.value)
     }
+
+    function renderFrames(actionId) {
+      const grid = document.getElementById('frames-grid')
+      const a = config.actions[actionId]
+      if (!a) { grid.innerHTML = '<span class="empty">（暂无动作）</span>'; return }
+      const folder = a.folder || actionId
+      const imgs = []
+      for (let i = 0; i < a.count; i++) {
+        const file = `frame_${String(i).padStart(3, '0')}.png`
+        imgs.push(`<img src="/pet/frames/${folder}/${file}?v=${frameBust}" alt="${file}" title="${file}" />`)
+      }
+      grid.innerHTML = imgs.join('')
+    }
+
+    document.getElementById('frame-action').addEventListener('change', (e) => renderFrames(e.target.value))
+
+    async function readFileBase64(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(String(r.result).split(',')[1])
+        r.onerror = () => reject(new Error('读取文件失败'))
+        r.readAsDataURL(file)
+      })
+    }
+
+    async function uploadFrames(action, files, label, fps) {
+      const frames = []
+      for (const f of files) frames.push({ data: await readFileBase64(f) })
+      const res = await fetch(FRAMES_API, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action, label, fps, frames }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || '上传失败')
+      return body
+    }
+
+    document.getElementById('replace-btn').addEventListener('click', async () => {
+      const action = document.getElementById('frame-action').value
+      const files = [...document.getElementById('replace-files').files]
+      if (!action) { alert('请先选择一个动作'); return }
+      if (files.length === 0) { alert('请选择要上传的 PNG 帧'); return }
+      const label = document.getElementById('replace-label').value.trim() || undefined
+      const fps = document.getElementById('replace-fps').value ? Number(document.getElementById('replace-fps').value) : undefined
+      try {
+        await uploadFrames(action, files, label, fps)
+        document.getElementById('replace-files').value = ''
+        document.getElementById('replace-label').value = ''
+        document.getElementById('replace-fps').value = ''
+        await load()
+        msg('帧已更新，记得「重启桌宠」', false)
+      } catch (e) { alert(e.message) }
+    })
+
+    document.getElementById('add-action-btn').addEventListener('click', async () => {
+      const name = document.getElementById('new-action-name').value.trim()
+      const files = [...document.getElementById('new-action-files').files]
+      if (!name) { alert('请输入新动作名'); return }
+      if (files.length === 0) { alert('请选择要上传的 PNG 帧'); return }
+      const fps = Number(document.getElementById('new-action-fps').value) || 5
+      try {
+        await uploadFrames(name, files, name, fps)
+        document.getElementById('new-action-name').value = ''
+        document.getElementById('new-action-files').value = ''
+        await load()
+        msg('动作已添加，记得「重启桌宠」', false)
+      } catch (e) { alert(e.message) }
+    })
+
+    document.getElementById('restart-btn').addEventListener('click', async () => {
+      const msgEl = document.getElementById('restart-msg')
+      msgEl.textContent = '重启中…'
+      msgEl.className = ''
+      try {
+        const res = await fetch(RESTART_API, { method: 'POST' })
+        if (res.ok) { msgEl.textContent = '已重启'; msgEl.className = 'ok' }
+        else { msgEl.textContent = '重启失败'; msgEl.className = 'err' }
+      } catch {
+        msgEl.textContent = '重启失败'; msgEl.className = 'err'
+      }
+    })
 
     document.getElementById('save').addEventListener('click', async () => {
       // 收集状态编辑
