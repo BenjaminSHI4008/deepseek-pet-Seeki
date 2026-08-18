@@ -65,6 +65,8 @@ export function apply(ctx: Context, config: Config = {}): void {
   const running = new Set<string>()
   // 最近一次 turn 是否以 error/aborted 结束（报错 / 手动停止）。
   let terminated = false
+  // running 归零后延迟一拍再广播，等 mux 流的 turn/end 先到（两个流投递顺序不保证）。
+  let endedTimer: ReturnType<typeof setTimeout> | null = null
 
   const current = (): PetStatus => {
     if (running.size > 0) return 'working'
@@ -75,6 +77,13 @@ export function apply(ctx: Context, config: Config = {}): void {
     for (const ws of clients) {
       if (ws.readyState === WebSocket.OPEN) ws.send(payload)
     }
+  }
+  const scheduleEnded = (): void => {
+    if (endedTimer) clearTimeout(endedTimer)
+    endedTimer = setTimeout(() => {
+      endedTimer = null
+      broadcast()
+    }, 80)
   }
 
   // 订阅事件流（mux 取 turn 结束原因，host 取 running 状态；dispose 时 abort）。
@@ -98,18 +107,27 @@ export function apply(ctx: Context, config: Config = {}): void {
     void (async () => {
       for await (const frame of host) {
         const payload = frame.payload
-        if (payload.type !== 'host/session-status') continue
-        if (payload.running) {
-          running.add(payload.sessionId)
-          terminated = false // 新 turn 开始
-        } else {
-          running.delete(payload.sessionId)
+        if (payload.type === 'host/session-status') {
+          if (payload.running) {
+            running.add(payload.sessionId)
+            terminated = false // 新 turn 开始
+            if (endedTimer) { clearTimeout(endedTimer); endedTimer = null }
+            broadcast()
+          } else {
+            running.delete(payload.sessionId)
+            if (running.size === 0) scheduleEnded() // 延迟一拍，等 turn/end
+            else broadcast()
+          }
+        } else if (payload.type === 'host/agent-error') {
+          terminated = true // 崩溃类错误（无 turn 位置）
         }
-        broadcast()
       }
     })().catch(() => {})
 
-    return () => abort.abort()
+    return () => {
+      abort.abort()
+      if (endedTimer) clearTimeout(endedTimer)
+    }
   }, 'pet-status: event streams')
 
   // WebSocket 升级路由。
