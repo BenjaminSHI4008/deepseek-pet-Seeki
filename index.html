@@ -4,6 +4,19 @@
     <meta charset="utf-8" />
     <title>Deepseek 桌宠</title>
     <style>
+      /* 像素字体（本地打包，离线/国内均可加载） */
+      @font-face {
+        font-family: 'Press Start 2P';
+        font-style: normal;
+        font-weight: 400;
+        src: url('./assets/fonts/press-start-2p.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'ZCOOL QingKe HuangYou';
+        font-style: normal;
+        font-weight: 400;
+        src: url('./assets/fonts/zcool-qingke-huangyou.woff2') format('woff2');
+      }
       html, body {
         margin: 0; padding: 0;
         background: transparent; /* 关键：透明窗口背景 */
@@ -15,28 +28,36 @@
         image-rendering: pixelated;
         cursor: grab;
       }
-      /* 头顶状态气泡 */
+      /* 头顶状态气泡（像素风） */
       #bubble {
         position: fixed;
-        left: 50%; top: 4px;
+        left: 50%; top: 2px;
         transform: translateX(-50%);
-        padding: 4px 10px;
-        border-radius: 12px;
-        background: rgba(24, 24, 30, 0.88);
+        padding: 7px 12px 8px;
+        background: #1b1b26;
         color: #fff;
-        font: 600 12px/1.4 -apple-system, "PingFang SC", sans-serif;
+        border: 3px solid #f5f5ff;
+        /* 硬阴影：无模糊、错位，营造 8-bit 立体感 */
+        box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.75);
+        /* 像素字体：英文走 Press Start 2P（真 8-bit），中文走站酷庆科黄油体 */
+        font-family: 'Press Start 2P', 'ZCOOL QingKe HuangYou', monospace;
+        font-size: 11px;
+        line-height: 1.7;
+        letter-spacing: 1px;
         white-space: nowrap;
         pointer-events: none;
         display: none;
         z-index: 10;
       }
+      /* 像素阶梯尾巴（梯形，硬边） */
       #bubble::after {
         content: "";
-        position: absolute; left: 50%; bottom: -5px;
+        position: absolute;
+        left: 50%; bottom: -9px;
         transform: translateX(-50%);
-        border: 5px solid transparent;
-        border-top-color: rgba(24, 24, 30, 0.88);
-        border-bottom: none;
+        width: 14px; height: 8px;
+        background: #f5f5ff;
+        clip-path: polygon(0 0, 100% 0, 64% 100%, 36% 100%);
       }
       #bubble.show { display: inline-block; }
     </style>
