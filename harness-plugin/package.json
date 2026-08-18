@@ -1,7 +1,7 @@
 {
   "name": "dsh-pet-status",
   "version": "0.1.0",
-  "description": "DeepSeek Harness 桌宠状态广播插件：订阅会话事件，经本地 WebSocket 广播 agent 当前活动（idle/thinking/searching/working/generating）",
+  "description": "DeepSeek Harness 桌宠插件：广播任务状态（running/completed/terminated）给桌宠，并作为桌宠管理器（配置/帧上传/删除/重启）",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
