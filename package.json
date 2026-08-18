@@ -20,6 +20,9 @@
   ],
   "author": "BenjaminSHI4008",
   "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
   "devDependencies": {
     "electron": "latest"
   }

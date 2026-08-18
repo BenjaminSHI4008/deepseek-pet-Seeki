@@ -15,10 +15,35 @@
         image-rendering: pixelated;
         cursor: grab;
       }
+      /* 头顶状态气泡 */
+      #bubble {
+        position: fixed;
+        left: 50%; top: 4px;
+        transform: translateX(-50%);
+        padding: 4px 10px;
+        border-radius: 12px;
+        background: rgba(24, 24, 30, 0.88);
+        color: #fff;
+        font: 600 12px/1.4 -apple-system, "PingFang SC", sans-serif;
+        white-space: nowrap;
+        pointer-events: none;
+        display: none;
+        z-index: 10;
+      }
+      #bubble::after {
+        content: "";
+        position: absolute; left: 50%; bottom: -5px;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: rgba(24, 24, 30, 0.88);
+        border-bottom: none;
+      }
+      #bubble.show { display: inline-block; }
     </style>
   </head>
   <body>
     <canvas id="pet" width="240" height="240"></canvas>
+    <div id="bubble"></div>
     <script type="module" src="./main.js"></script>
   </body>
 </html>

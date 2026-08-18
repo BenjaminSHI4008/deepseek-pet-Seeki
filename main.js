@@ -123,5 +123,26 @@ window.addEventListener('mouseup', () => {
   dragging = false
 })
 
+// 头顶状态气泡（来自 harness 的 agent 活动状态）
+const bubble = document.getElementById('bubble')
+const STATUS_LABEL = {
+  thinking: '💭 思考中',
+  searching: '🔍 搜索中',
+  working: '🛠️ 工作中',
+  generating: '✍️ 生成中',
+  idle: '',
+  offline: '📡 离线',
+}
+function updateBubble(status) {
+  if (status === 'idle') {
+    bubble.classList.remove('show')
+    return
+  }
+  bubble.textContent = STATUS_LABEL[status] ?? status
+  bubble.classList.add('show')
+}
+window.petAPI.onStatus(updateBubble)
+updateBubble('offline') // 未连上 harness 前默认显示离线
+
 setState(config.defaultState)
 requestAnimationFrame(tick)

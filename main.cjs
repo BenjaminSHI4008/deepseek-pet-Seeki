@@ -1,10 +1,66 @@
-// Electron 主进程：透明、无边框、置顶的桌宠窗口
+// Electron 主进程：透明、无边框、置顶的桌宠窗口 + 连接 harness 状态流
 const { app, BrowserWindow, Menu, screen, ipcMain } = require('electron')
 const path = require('path')
+const fs = require('fs')
+const WebSocket = require('ws')
 
 const WIN_SIZE = 240
 
-// 拖拽窗口：记录起点，随鼠标移动窗口
+// 读取 pet.config.json（主进程用 fs 直接读，拿到 harness 的 WebSocket 地址）
+let petConfig = {}
+try {
+  petConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'pet.config.json'), 'utf8'))
+} catch (error) {
+  console.error('读取 pet.config.json 失败：', error)
+}
+const WS_URL = petConfig.server?.wsUrl ?? 'ws://127.0.0.1:3080/api/pet.ws'
+
+// ── 连接 harness 状态流 ────────────────────────────────────────────────
+let mainWindow = null
+let ws = null
+let reconnectTimer = null
+let reconnectDelay = 1000
+
+function pushStatus(status) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('pet-status', status)
+  }
+}
+
+function connect() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
+  ws = new WebSocket(WS_URL)
+
+  ws.on('open', () => {
+    reconnectDelay = 1000
+  })
+  ws.on('message', (data) => {
+    try {
+      const msg = JSON.parse(data.toString())
+      if (msg.type === 'status') pushStatus(msg.status)
+    } catch {
+      // 非 JSON 消息忽略
+    }
+  })
+  ws.on('close', () => {
+    pushStatus('offline')
+    scheduleReconnect()
+  })
+  ws.on('error', () => {
+    pushStatus('offline')
+  })
+}
+
+function scheduleReconnect() {
+  if (reconnectTimer) return
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null
+    reconnectDelay = Math.min(reconnectDelay * 2, 15000) // 指数退避，上限 15s
+    connect()
+  }, reconnectDelay)
+}
+
+// ── 拖拽窗口 ───────────────────────────────────────────────────────────
 let dragStartWin = null
 let dragStartScreen = null
 ipcMain.on('pet-drag-start', (e, { sx, sy }) => {
@@ -47,7 +103,14 @@ function createWindow() {
   win.webContents.on('context-menu', () => {
     Menu.buildFromTemplate([{ label: '退出桌宠', click: () => app.quit() }]).popup({ window: win })
   })
+
+  mainWindow = win
+  connect() // 窗口就绪后连 harness
 }
 
 app.whenReady().then(createWindow)
 app.on('window-all-closed', () => app.quit())
+app.on('before-quit', () => {
+  if (reconnectTimer) clearTimeout(reconnectTimer)
+  if (ws) ws.terminate()
+})

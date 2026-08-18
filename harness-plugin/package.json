@@ -1,0 +1,30 @@
+{
+  "name": "dsh-pet-status",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness 桌宠状态广播插件：订阅会话事件，经本地 WebSocket 广播 agent 当前活动（idle/thinking/searching/working/generating）",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsdown src/index.ts --out-dir dist"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=0.1.0",
+    "@deepseek-ai/dsh-host-webserver": ">=0.1.0",
+    "@deepseek-ai/dsh-host-apiproxy": ">=0.1.0",
+    "@deepseek-ai/dsh-session": ">=0.1.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-host-webserver": "*",
+    "@deepseek-ai/dsh-host-apiproxy": "*",
+    "@deepseek-ai/dsh-session": "*",
+    "@types/ws": "^8.5.12",
+    "tsdown": "*",
+    "typescript": "*"
+  },
+  "license": "MIT",
+  "author": "BenjaminSHI4008"
+}

@@ -3,6 +3,9 @@
   "character": "Deepseek",
   "direction": "south",
   "defaultState": "idle",
+  "server": {
+    "wsUrl": "ws://127.0.0.1:3080/api/pet.ws"
+  },
 
   "animations": {
     "Breathing_Idle":          { "fps": 4,   "count": 4 },
