@@ -34,6 +34,8 @@
     }
     .btn:hover { opacity: .9; }
     .btn.danger { background: var(--danger); color: #fff; }
+    .btn-mini { background: var(--danger); color: #fff; border: none; border-radius: 6px; padding: 4px 10px; font: 600 12px inherit; cursor: pointer; }
+    .btn-mini:hover { opacity: .85; }
     #status-msg, #restart-msg { margin-left: 12px; font-size: 13px; color: var(--muted); }
     #status-msg.ok, #restart-msg.ok { color: #7ed957; }
     #status-msg.err, #restart-msg.err { color: #ff5252; }
@@ -92,7 +94,7 @@
     <section>
       <h2>角色动作 Character Actions</h2>
       <table>
-        <thead><tr><th style="width:110px">角色动作</th><th>标签</th><th>帧目录</th><th style="width:90px">帧长 count</th><th style="width:90px">帧率 fps</th></tr></thead>
+        <thead><tr><th style="width:110px">角色动作</th><th>标签</th><th>帧目录</th><th style="width:90px">帧长 count</th><th style="width:90px">帧率 fps</th><th style="width:70px">操作</th></tr></thead>
         <tbody id="actions-body"></tbody>
       </table>
     </section>
@@ -183,6 +185,7 @@
           <td><input type="text" data-action="${id}" data-field="folder" value="${escapeHtml(a.folder)}" /></td>
           <td><input type="number" min="1" data-action="${id}" data-field="count" value="${a.count}" /></td>
           <td><input type="number" min="0.1" step="0.1" data-action="${id}" data-field="fps" value="${a.fps}" /></td>
+          <td><button class="btn-mini" data-del-action="${id}">删除</button></td>
         </tr>`).join('')
       // 角色状态
       document.getElementById('cs-default').innerHTML = actionSelect(config.defaultAction)
@@ -282,6 +285,42 @@
       } catch {
         msgEl.textContent = '重启失败'; msgEl.className = 'err'
       }
+    })
+
+    // 收集某动作被引用的位置（用于删除前提示）
+    function collectRefs(action) {
+      const refs = []
+      if (config.defaultAction === action) refs.push('默认待机')
+      for (const [sid, s] of Object.entries(config.statuses)) {
+        if (s.action === action) refs.push(`任务状态「${STATUS_MEANING[sid] ?? sid}」`)
+      }
+      const t = config.triggers || {}
+      if (t.drag && (t.drag.during === action || t.drag.after === action)) refs.push('拖动')
+      if (t.clickIdle && (t.clickIdle.to === action || t.clickIdle.returnTo === action)) refs.push('点击')
+      if (t.wake && (t.wake.to === action || (Array.isArray(t.wake.from) && t.wake.from.includes(action)))) refs.push('唤醒')
+      if (t.timeout && (t.timeout.from === action || t.timeout.to === action)) refs.push('超时')
+      return refs
+    }
+
+    // 删除动作（事件委托，按钮在 render 里动态生成）
+    document.getElementById('actions-body').addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-del-action]')
+      if (!btn) return
+      const action = btn.dataset.delAction
+      const refs = collectRefs(action)
+      const tip = refs.length ? `\n它正被 ${refs.join('、')} 使用，删除后会自动回退。` : ''
+      if (!confirm(`确定删除动作「${action}」吗？将同时删除其帧文件。${tip}`)) return
+      try {
+        const res = await fetch('/api/pet.action', {
+          method: 'DELETE',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action }),
+        })
+        const body = await res.json()
+        if (!res.ok) throw new Error(body.error || '删除失败')
+        await load()
+        msg(`已删除「${action}」，记得「重启桌宠」`, false)
+      } catch (err) { alert(err.message) }
     })
 
     document.getElementById('save').addEventListener('click', async () => {

@@ -14,7 +14,7 @@ import z from '@deepseek-ai/schemastery'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
-import { readFile, writeFile, mkdir, readdir, unlink } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, readdir, unlink, rm } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
@@ -332,6 +332,61 @@ export function apply(ctx: Context, config: Config = {}): void {
         json(res, 200, { ok: true })
       },
     }), 'pet-status: restart')
+
+    // 删除动作（连带删帧目录 + 引用回退）
+    ctx.effect(() => ctx.webServer.register({
+      kind: 'exact',
+      path: '/api/pet.action',
+      handler: async (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'DELETE') { res.writeHead(405); res.end(); return }
+        try {
+          const { action } = JSON.parse(await readBody(req))
+          if (typeof action !== 'string' || !action) throw new Error('action 必填')
+          const cfg = await readConfig()
+          if (cfg === null) throw new Error('config not found')
+          const actions = (cfg.actions ?? {}) as Record<string, { label?: string; fps?: number; folder: string; count: number; intro?: [number, number] }>
+          if (!actions[action]) throw new Error(`动作 "${action}" 不存在`)
+
+          // 计算回退动作：优先 idle，其次 defaultAction，再次任意剩余动作
+          const rest = Object.keys(actions).filter((k) => k !== action)
+          if (rest.length === 0) throw new Error('不能删除最后一个动作')
+          const fallback = rest.includes('idle') ? 'idle'
+            : rest.includes(String(cfg.defaultAction)) ? String(cfg.defaultAction)
+              : rest[0]
+
+          // 回退引用：任务状态的触发动作置空；其余必填动作位回退到 fallback
+          if (cfg.defaultAction === action) cfg.defaultAction = fallback
+          const statuses = (cfg.statuses ?? {}) as Record<string, { action?: string | null }>
+          for (const s of Object.values(statuses)) {
+            if (s.action === action) s.action = null
+          }
+          const t = (cfg.triggers ?? {}) as Record<string, unknown>
+          const repoint = (obj: Record<string, unknown>, key: string): void => {
+            if (obj[key] === action) obj[key] = fallback
+          }
+          if (t.drag) { repoint(t.drag as Record<string, unknown>, 'during'); repoint(t.drag as Record<string, unknown>, 'after') }
+          if (t.clickIdle) { repoint(t.clickIdle as Record<string, unknown>, 'to'); repoint(t.clickIdle as Record<string, unknown>, 'returnTo') }
+          if (t.wake) {
+            const wake = t.wake as Record<string, unknown>
+            if (Array.isArray(wake.from)) wake.from = wake.from.filter((v) => v !== action)
+            if (wake.to === action) wake.to = fallback
+          }
+          if (t.timeout) { repoint(t.timeout as Record<string, unknown>, 'from'); repoint(t.timeout as Record<string, unknown>, 'to') }
+
+          // 删动作条目 + 帧目录（目录名不安全时跳过文件删除，仅删配置）
+          const folder = actions[action].folder
+          delete actions[action]
+          cfg.actions = actions
+          if (/^[a-zA-Z0-9_-]+$/.test(folder)) {
+            await rm(path.join(petDir, 'Deepseek', 'animations', folder), { recursive: true, force: true })
+          }
+          await writeConfig(cfg)
+          json(res, 200, { ok: true, action, fallback })
+        } catch (error) {
+          json(res, 400, { ok: false, error: String(error) })
+        }
+      },
+    }), 'pet-status: action delete')
   }
 
   // Web 配置管理页面（/pet/settings）
