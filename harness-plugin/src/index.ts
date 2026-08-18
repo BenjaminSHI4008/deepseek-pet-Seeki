@@ -49,7 +49,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** 桌宠活动状态。 */
-export type PetStatus = 'idle' | 'working'
+export type PetStatus = 'idle' | 'working' | 'terminated'
 
 /**
  * Mounts the status broadcaster (and optionally the pet subprocess).
@@ -61,10 +61,15 @@ export function apply(ctx: Context, config: Config = {}): void {
   const server = new WebSocketServer({ noServer: true })
   const clients = new Set<WebSocket>()
 
-  // 正在运行的会话集合：非空 = working，空 = idle。
+  // 正在运行的会话集合：非空 = working；空 = idle 或 terminated。
   const running = new Set<string>()
+  // 最近一次 turn 是否以 error/aborted 结束（报错 / 手动停止）。
+  let terminated = false
 
-  const current = (): PetStatus => (running.size === 0 ? 'idle' : 'working')
+  const current = (): PetStatus => {
+    if (running.size > 0) return 'working'
+    return terminated ? 'terminated' : 'idle'
+  }
   const broadcast = (): void => {
     const payload = JSON.stringify({ type: 'status', status: current() })
     for (const ws of clients) {
@@ -72,24 +77,40 @@ export function apply(ctx: Context, config: Config = {}): void {
     }
   }
 
-  // 订阅 host 事件流（dispose 时 abort）。
+  // 订阅事件流（mux 取 turn 结束原因，host 取 running 状态；dispose 时 abort）。
   ctx.effect(() => {
     const abort = new AbortController()
     const api: ApiProxy = ctx.apiProxy
+    const mux = api.events.mux({ rpcId: RpcId(randomUUID()), payload: {} }, abort.signal)
     const host = api.events.host({ rpcId: RpcId(randomUUID()), payload: {} }, abort.signal)
+
+    void (async () => {
+      for await (const frame of mux) {
+        const payload = frame.payload
+        if (payload.type !== 'session/event') continue
+        const event = payload.event
+        if (event.type !== 'turn/end') continue
+        const kind = event.data.reason.kind
+        terminated = kind === 'error' || kind === 'aborted'
+      }
+    })().catch(() => {})
 
     void (async () => {
       for await (const frame of host) {
         const payload = frame.payload
         if (payload.type !== 'host/session-status') continue
-        if (payload.running) running.add(payload.sessionId)
-        else running.delete(payload.sessionId)
+        if (payload.running) {
+          running.add(payload.sessionId)
+          terminated = false // 新 turn 开始
+        } else {
+          running.delete(payload.sessionId)
+        }
         broadcast()
       }
     })().catch(() => {})
 
     return () => abort.abort()
-  }, 'pet-status: host stream')
+  }, 'pet-status: event streams')
 
   // WebSocket 升级路由。
   ctx.effect(() => ctx.webServer.registerUpgrade({

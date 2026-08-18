@@ -37,6 +37,14 @@ function updateBubble(status) {
       bubble.className = ''
     }
     bubbleWasWorking = false
+  } else if (status === 'terminated') {
+    // 报错 / 手动停止：显示「已截止」（深灰），不切开心动作
+    if (bubbleWasWorking) {
+      bubble.className = 'st-terminated show'
+      bubble.textContent = '已截止'
+      bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
+    }
+    bubbleWasWorking = false
   } else {
     // offline
     bubble.className = 'st-offline show'
