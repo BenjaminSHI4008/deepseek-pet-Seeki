@@ -1,4 +1,7 @@
 // 渲染层：配置驱动的 2D 精灵（v2：statuses + actions + triggers）
+// 状态维度已拆分：
+//   - 任务状态（statuses，来自 harness）：running/completed/terminated/offline → 决定气泡文字
+//   - 角色动作（actions，桌宠动画）：idle/happy/walk/sleep → 决定精灵动画
 const canvas = document.getElementById('pet')
 const ctx = canvas.getContext('2d')
 const SCALE = 1.5
@@ -33,19 +36,45 @@ for (const [name, a] of Object.entries(config.actions)) {
   }
 }
 
-// 预加载所有帧
+// 预加载所有帧（缺失/损坏的帧跳过，不让单个坏图拖垮整个桌宠）
 const cache = new Map()
 async function loadFrame(path) {
   const img = new Image()
   img.src = './' + path
-  await img.decode()
-  cache.set(path, img)
+  try {
+    await img.decode()
+    cache.set(path, img)
+  } catch {
+    console.warn(`[pet] 帧加载失败，已跳过：${path}`)
+  }
 }
 const allPaths = new Set()
 for (const a of Object.values(ACTIONS)) for (const p of [...a.intro, ...a.loop]) allPaths.add(p)
 await Promise.all([...allPaths].map(loadFrame))
 
-// ── 状态机（动作 = 状态，intro 播一次后进入 loop 循环）──────────────
+// 过滤掉加载失败的帧；空动作直接禁用，避免空白桌宠「消失」
+for (const [name, a] of Object.entries(ACTIONS)) {
+  a.intro = a.intro.filter((p) => cache.has(p))
+  a.loop = a.loop.filter((p) => cache.has(p))
+  if (a.intro.length === 0 && a.loop.length === 0) {
+    console.warn(`[pet] 动作 "${name}" 没有任何可用帧，已禁用`)
+    delete ACTIONS[name]
+  }
+}
+// 兜底：defaultAction 不存在时回退到 idle / 任意可用动作
+if (!ACTIONS[config.defaultAction]) {
+  config.defaultAction = ACTIONS.idle ? 'idle' : Object.keys(ACTIONS)[0]
+}
+if (!config.defaultAction) {
+  console.error('[pet] 没有任何可用精灵帧，请检查 Deepseek/animations/ 与 pet.config.json')
+  bubble.textContent = 'No sprites'
+  bubble.style.color = '#ff5252'
+  bubble.className = 'show'
+  throw new Error('no valid sprite frames')
+}
+const fallbackAction = (name) => (ACTIONS[name] ? name : config.defaultAction)
+
+// ── 状态机（动作 = 角色状态，intro 播一次后进入 loop 循环）──────────
 let state = config.defaultAction
 let phase = ACTIONS[state].intro.length > 0 ? 'intro' : 'loop'
 let frameIdx = 0
@@ -64,6 +93,7 @@ let statusActionTimer = null
 const cancelStatusAction = () => { if (statusActionTimer) { clearTimeout(statusActionTimer); statusActionTimer = null } }
 
 function setState(s) {
+  s = fallbackAction(s)
   state = s
   phase = ACTIONS[s].intro.length > 0 ? 'intro' : 'loop'
   frameIdx = 0
@@ -80,6 +110,7 @@ function setState(s) {
 
 function drawFrame(path) {
   const img = cache.get(path)
+  if (!img) return // 防御：缺帧时保持上一帧
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.imageSmoothingEnabled = false
   const dx = (canvas.width - img.naturalWidth * SCALE) / 2
@@ -107,7 +138,7 @@ function tick(now) {
   }
 }
 
-// ── 气泡渲染（从 statuses 读文案/颜色）──────────────
+// ── 气泡渲染（从任务状态读文案/颜色）──────────────
 let bubbleWasWorking = false
 let bubbleTimer = null
 let stateMachineReady = false
@@ -120,21 +151,26 @@ function triggerStatusAction(action) {
 }
 
 function renderStatus() {
-  const status = latestStatus
+  // 归一化：兼容旧插件广播的 working/idle（避免插件与桌宠短暂版本错位时误显示 Offline）
+  let status = latestStatus
+  if (status === 'working') status = 'running'
+  else if (status === 'idle') status = 'completed'
   const s = STATUSES[status] ?? STATUSES.offline
   clearTimeout(bubbleTimer)
-  if (status === 'working') {
+  if (status === 'running') {
+    // 任务进行：持续显示气泡
     bubble.textContent = s.text
     bubble.style.color = s.color
     bubble.className = 'show'
     bubbleWasWorking = true
-  } else if (status === 'idle' || status === 'terminated') {
+  } else if (status === 'completed' || status === 'terminated') {
+    // 任务结束：短暂闪一下结果气泡
     if (bubbleWasWorking) {
       bubble.textContent = s.text
       bubble.style.color = s.color
       bubble.className = 'show'
       bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
-      if (s.action) triggerStatusAction(s.action) // 如 idle → happy
+      if (s.action) triggerStatusAction(s.action) // 如 completed → happy
     } else {
       bubble.className = ''
     }
@@ -166,14 +202,14 @@ window.addEventListener('mousemove', (e) => {
   if (!dragging) return
   if (!moved && Math.hypot(e.screenX - dragStart.x, e.screenY - dragStart.y) > 4) {
     moved = true
-    setState(T.drag.during) // 拖动 → 走路
+    setState(T.drag.during) // 角色拖动 → 走路
   }
   if (moved) window.petAPI.dragMove(e.screenX, e.screenY)
 })
 window.addEventListener('mouseup', () => {
-  if (dragging && moved) setState(T.drag.after) // 松手 → 待机
+  if (dragging && moved) setState(T.drag.after) // 松手 → 角色待机
   else if (dragging && !moved && downState === T.timeout.from && state === T.timeout.from) {
-    // 单击待机 → 开心，片刻后回待机
+    // 角色点击（待机时单击）→ 开心，片刻后回待机
     setState(T.clickIdle.to)
     returnTimer = setTimeout(() => { if (state === T.clickIdle.to) setState(T.clickIdle.returnTo) }, T.clickIdle.afterMs)
   }

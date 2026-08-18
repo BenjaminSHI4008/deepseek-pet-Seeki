@@ -7,12 +7,12 @@
     "wsUrl": "ws://127.0.0.1:3080/api/pet.ws"
   },
   "statuses": {
-    "working": {
+    "running": {
       "text": "Deep diving...",
       "color": "#4fc3f7",
       "action": null
     },
-    "idle": {
+    "completed": {
       "text": "Completed",
       "color": "#7ed957",
       "action": "happy"
@@ -30,25 +30,25 @@
   },
   "actions": {
     "happy": {
-      "label": "开心",
+      "label": "角色点击",
       "fps": 5,
       "folder": "Happy",
       "count": 9
     },
     "idle": {
-      "label": "待机",
+      "label": "角色待机",
       "fps": 4,
       "folder": "Breathing_Idle",
       "count": 4
     },
     "walk": {
-      "label": "走路",
+      "label": "角色拖动",
       "fps": 8,
       "folder": "Crouched_Walking",
       "count": 6
     },
     "sleep": {
-      "label": "睡觉",
+      "label": "角色睡觉",
       "fps": 2.5,
       "folder": "Close_eyes_and_sleeping",
       "count": 9,

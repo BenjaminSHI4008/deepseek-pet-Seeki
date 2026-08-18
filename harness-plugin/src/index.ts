@@ -1,7 +1,7 @@
 /**
  * dsh-pet-status — DeepSeek Harness 桌宠状态广播插件（兼桌宠管理器）。
  *
- * 1) 订阅事件流，把 agent 活动收敛为 working / idle / terminated 并广播；
+ * 1) 订阅事件流，把 agent 活动收敛为 running / completed / terminated 并广播；
  * 2) 经本地 WebSocket 广播状态；
  * 3) 自动拉起桌宠（Electron 子进程），退出/重启时一并管理；
  * 4) 提供桌宠管理 HTTP API：配置读写、帧上传/预览、重启。
@@ -45,8 +45,8 @@ export const Config: z<Config> = z.object({
   autoStart: z.boolean().default(false),
 })
 
-/** 桌宠活动状态。 */
-export type PetStatus = 'idle' | 'working' | 'terminated'
+/** 桌宠活动状态（任务维度，对应 statuses 里的 running/completed/terminated）。 */
+export type PetStatus = 'running' | 'completed' | 'terminated'
 
 /** 读取请求体为 UTF-8 文本。 */
 function readBody(req: IncomingMessage): Promise<string> {
@@ -61,6 +61,16 @@ function readBody(req: IncomingMessage): Promise<string> {
 /** 把动作名净化为安全的目录名。 */
 function sanitizeFolder(name: string): string {
   return String(name).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'action'
+}
+
+const PNG_MAGIC = '89504e470d0a1a0a'
+/** 精灵帧尺寸上限（现有帧 128~160px；240px 窗口 / SCALE 1.5 下超过即溢出）。 */
+const MAX_FRAME_DIM = 256
+
+/** 校验 PNG 魔数并读 IHDR 宽高；非 PNG 或过短返回 null。 */
+function pngDims(buf: Buffer): { w: number; h: number } | null {
+  if (buf.length < 24 || buf.subarray(0, 8).toString('hex') !== PNG_MAGIC) return null
+  return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) }
 }
 
 /** 响应 JSON。 */
@@ -79,7 +89,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   const server = new WebSocketServer({ noServer: true })
   const clients = new Set<WebSocket>()
 
-  // 正在运行的会话集合：非空 = working；空 = idle 或 terminated。
+  // 正在运行的会话集合：非空 = running；空 = completed 或 terminated。
   const running = new Set<string>()
   // 最近一次 turn 是否以 error/aborted 结束（报错 / 手动停止）。
   let terminated = false
@@ -87,8 +97,8 @@ export function apply(ctx: Context, config: Config = {}): void {
   let endedTimer: ReturnType<typeof setTimeout> | null = null
 
   const current = (): PetStatus => {
-    if (running.size > 0) return 'working'
-    return terminated ? 'terminated' : 'idle'
+    if (running.size > 0) return 'running'
+    return terminated ? 'terminated' : 'completed'
   }
   const broadcast = (): void => {
     const payload = JSON.stringify({ type: 'status', status: current() })
@@ -248,18 +258,26 @@ export function apply(ctx: Context, config: Config = {}): void {
           const existing = actions[action]
           const folder = existing?.folder ?? sanitizeFolder(action)
 
-          // 写帧
+          // 先全部解码并校验（PNG 魔数 + 尺寸上限），再写盘——避免半截写坏目录
+          const bufs: Buffer[] = []
+          for (let i = 0; i < frames.length; i++) {
+            const data = (frames[i] as { data?: unknown })?.data
+            if (typeof data !== 'string') throw new Error(`frame ${i} 缺少 data`)
+            const buf = Buffer.from(data, 'base64')
+            const dims = pngDims(buf)
+            if (!dims) throw new Error(`frame ${i} 不是 PNG`)
+            if (dims.w > MAX_FRAME_DIM || dims.h > MAX_FRAME_DIM) {
+              throw new Error(`frame ${i} 尺寸 ${dims.w}×${dims.h} 超出上限 ${MAX_FRAME_DIM}×${MAX_FRAME_DIM}，请上传像素精灵帧`)
+            }
+            bufs.push(buf)
+          }
           const frameDir = path.join(petDir, 'Deepseek', 'animations', folder, 'south')
           await mkdir(frameDir, { recursive: true })
           for (const f of await readdir(frameDir).catch(() => [])) {
             if (f.endsWith('.png')) await unlink(path.join(frameDir, f))
           }
-          for (let i = 0; i < frames.length; i++) {
-            const data = (frames[i] as { data?: unknown })?.data
-            if (typeof data !== 'string') throw new Error(`frame ${i} 缺少 data`)
-            const buf = Buffer.from(data, 'base64')
-            if (buf.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw new Error(`frame ${i} 不是 PNG`)
-            await writeFile(path.join(frameDir, `frame_${String(i).padStart(3, '0')}.png`), buf)
+          for (let i = 0; i < bufs.length; i++) {
+            await writeFile(path.join(frameDir, `frame_${String(i).padStart(3, '0')}.png`), bufs[i])
           }
 
           // 更新配置（替换帧时清掉 intro，新动作无 intro）

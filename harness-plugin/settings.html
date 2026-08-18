@@ -16,6 +16,7 @@
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     th { color: var(--muted); font-weight: 600; font-size: 12px; }
+    .dim { color: var(--muted); font-size: 11px; margin-top: 2px; }
     tr:last-child td { border-bottom: none; }
     input[type=text], input[type=number] {
       width: 100%; padding: 6px 8px; background: #121218; border: 1px solid var(--border);
@@ -48,20 +49,20 @@
 <body>
   <div class="wrap">
     <h1>桌宠配置</h1>
-    <p class="sub">状态（Statuses）驱动头顶气泡文字与颜色；动作（Actions）是精灵动画帧序列。改完点「保存」即时生效；帧变动需「重启桌宠」加载。</p>
+    <p class="sub">任务状态（Task Statuses，来自 harness）决定头顶气泡文字与颜色，并可触发一个角色动作；角色动作（Character Actions）是精灵动画帧序列。改完点「保存」即时生效；帧变动需「重启桌宠」加载。</p>
 
     <section>
-      <h2>状态 Statuses</h2>
+      <h2>任务状态 Task Statuses</h2>
       <table>
-        <thead><tr><th style="width:120px">状态</th><th>气泡文字</th><th style="width:120px">颜色</th><th style="width:140px">触发动作</th></tr></thead>
+        <thead><tr><th style="width:140px">任务状态</th><th>气泡文字</th><th style="width:120px">颜色</th><th style="width:160px">完成后触发角色动作</th></tr></thead>
         <tbody id="statuses-body"></tbody>
       </table>
     </section>
 
     <section>
-      <h2>动作 Actions</h2>
+      <h2>角色动作 Character Actions</h2>
       <table>
-        <thead><tr><th style="width:100px">动作</th><th>标签</th><th>帧目录</th><th style="width:90px">帧长 count</th><th style="width:90px">帧率 fps</th></tr></thead>
+        <thead><tr><th style="width:110px">角色动作</th><th>标签</th><th>帧目录</th><th style="width:90px">帧长 count</th><th style="width:90px">帧率 fps</th></tr></thead>
         <tbody id="actions-body"></tbody>
       </table>
     </section>
@@ -98,6 +99,7 @@
     let config = null
     let frameBust = 0
     const API = '/api/pet.config'
+    const STATUS_MEANING = { running: '任务进行', completed: '任务完成', terminated: '任务截止', offline: '离线' }
     const FRAMES_API = '/api/pet.frames'
     const RESTART_API = '/api/pet.restart'
 
@@ -115,7 +117,7 @@
       const sb = document.getElementById('statuses-body')
       sb.innerHTML = Object.entries(config.statuses).map(([id, s]) => `
         <tr>
-          <td><code>${id}</code></td>
+          <td><code>${id}</code><div class="dim">${STATUS_MEANING[id] ?? ''}</div></td>
           <td><input type="text" data-status="${id}" data-field="text" value="${escapeHtml(s.text)}" /></td>
           <td><div class="color-cell">
             <span class="swatch" style="background:${s.color}"></span>
