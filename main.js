@@ -28,9 +28,9 @@ function updateBubble(status) {
     bubbleWasWorking = true
   } else if (status === 'idle') {
     if (bubbleWasWorking) {
-      // 工作 → 完成：显示「已完成」+ 同步切开心动作
+      // 工作 → 完成：显示「Completed」+ 同步切开心动作
       bubble.className = 'st-done show'
-      bubble.textContent = '已完成'
+      bubble.textContent = 'Completed'
       bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
       celebrate()
     } else {
@@ -38,17 +38,17 @@ function updateBubble(status) {
     }
     bubbleWasWorking = false
   } else if (status === 'terminated') {
-    // 报错 / 手动停止：显示「已截止」（深灰），不切开心动作
+    // 报错 / 手动停止：显示「Stopped」，不切开心动作
     if (bubbleWasWorking) {
       bubble.className = 'st-terminated show'
-      bubble.textContent = '已截止'
+      bubble.textContent = 'Stopped'
       bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
     }
     bubbleWasWorking = false
   } else {
     // offline
     bubble.className = 'st-offline show'
-    bubble.textContent = '📡 离线'
+    bubble.textContent = 'Offline'
     bubbleWasWorking = false
   }
 }
