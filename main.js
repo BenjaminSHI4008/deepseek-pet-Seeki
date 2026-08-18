@@ -23,24 +23,24 @@ function celebrate() {
 function updateBubble(status) {
   clearTimeout(bubbleTimer)
   if (status === 'working') {
+    bubble.className = 'st-working show'
     bubble.textContent = 'Deep diving...'
-    bubble.classList.add('show')
     bubbleWasWorking = true
   } else if (status === 'idle') {
     if (bubbleWasWorking) {
       // 工作 → 完成：显示「已完成」+ 同步切开心动作
+      bubble.className = 'st-done show'
       bubble.textContent = '已完成'
-      bubble.classList.add('show')
       bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
       celebrate()
     } else {
-      bubble.classList.remove('show')
+      bubble.className = ''
     }
     bubbleWasWorking = false
   } else {
     // offline
+    bubble.className = 'st-offline show'
     bubble.textContent = '📡 离线'
-    bubble.classList.add('show')
     bubbleWasWorking = false
   }
 }

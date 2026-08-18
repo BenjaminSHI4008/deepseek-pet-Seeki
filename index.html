@@ -28,37 +28,26 @@
         image-rendering: pixelated;
         cursor: grab;
       }
-      /* 头顶状态气泡（像素风） */
+      /* 头顶状态文字（无框像素块） */
       #bubble {
         position: fixed;
-        left: 50%; top: 2px;
+        left: 50%; top: 4px;
         transform: translateX(-50%);
-        padding: 7px 12px 8px;
-        background: #1b1b26;
-        color: #fff;
-        border: 3px solid #f5f5ff;
-        /* 硬阴影：无模糊、错位，营造 8-bit 立体感 */
-        box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.75);
         /* 像素字体：英文走 Press Start 2P（真 8-bit），中文走站酷庆科黄油体 */
         font-family: 'Press Start 2P', 'ZCOOL QingKe HuangYou', monospace;
-        font-size: 11px;
-        line-height: 1.7;
+        font-size: 10px;
+        line-height: 1.5;
         letter-spacing: 1px;
+        /* 硬像素阴影：无框也能在各种背景下看清 */
+        text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.85);
         white-space: nowrap;
         pointer-events: none;
         display: none;
         z-index: 10;
       }
-      /* 像素阶梯尾巴（梯形，硬边） */
-      #bubble::after {
-        content: "";
-        position: absolute;
-        left: 50%; bottom: -9px;
-        transform: translateX(-50%);
-        width: 14px; height: 8px;
-        background: #f5f5ff;
-        clip-path: polygon(0 0, 100% 0, 64% 100%, 36% 100%);
-      }
+      #bubble.st-working { color: #4fc3f7; }
+      #bubble.st-done { color: #7ed957; }
+      #bubble.st-offline { color: #9e9e9e; }
       #bubble.show { display: inline-block; }
     </style>
   </head>
