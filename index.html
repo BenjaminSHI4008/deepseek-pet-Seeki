@@ -35,17 +35,21 @@
         transform: translateX(-50%);
         /* 像素字体：英文走 Press Start 2P（真 8-bit），中文走站酷庆科黄油体 */
         font-family: 'Press Start 2P', 'ZCOOL QingKe HuangYou', monospace;
-        font-size: 10px;
-        line-height: 1.5;
-        letter-spacing: 1px;
-        /* 硬像素阴影：无框也能在各种背景下看清 */
-        text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.85);
+        font-size: 14px;           /* 中文默认字号（放大，保证清晰） */
+        line-height: 1.3;
+        letter-spacing: 3px;       /* 中文字距拉开 */
+        /* 硬像素阴影：实黑 + 足够偏移，不与字形粘连 */
+        text-shadow: 2px 2px 0 #000;
         white-space: nowrap;
         pointer-events: none;
         display: none;
         z-index: 10;
       }
-      #bubble.st-working { color: #4fc3f7; }
+      #bubble.st-working {
+        color: #4fc3f7;
+        font-size: 10px;           /* 英文 Press Start 2P 用更小字号 */
+        letter-spacing: 1px;
+      }
       #bubble.st-done { color: #7ed957; }
       #bubble.st-offline { color: #9e9e9e; }
       #bubble.show { display: inline-block; }
