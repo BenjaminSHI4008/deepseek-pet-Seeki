@@ -1,37 +1,31 @@
 {
-  "version": 1,
+  "version": 2,
   "character": "Deepseek",
   "direction": "south",
-  "defaultState": "idle",
+  "defaultAction": "idle",
   "server": {
     "wsUrl": "ws://127.0.0.1:3080/api/pet.ws"
   },
 
-  "animations": {
-    "Breathing_Idle":          { "fps": 4,   "count": 4 },
-    "Crouched_Walking":        { "fps": 8,   "count": 6 },
-    "Close_eyes_and_sleeping": { "fps": 2.5, "count": 9 },
-    "Happy":                   { "fps": 5,   "count": 9 }
+  "statuses": {
+    "working":    { "text": "Deep diving...", "color": "#4fc3f7", "action": null },
+    "idle":       { "text": "Completed",       "color": "#7ed957", "action": "happy" },
+    "terminated": { "text": "Stopped",         "color": "#ff5252", "action": null },
+    "offline":    { "text": "Offline",         "color": "#9e9e9e", "action": null }
   },
 
-  "states": {
-    "idle":  { "label": "待机 idle",   "anim": "Breathing_Idle" },
-    "walk":  { "label": "走路 walk",   "anim": "Crouched_Walking" },
-    "happy": { "label": "开心 happy",  "anim": "Happy" },
-    "yawn":  { "label": "打哈欠 yawn", "anim": "Close_eyes_and_sleeping", "range": [0, 2], "next": "sleep" },
-    "sleep": { "label": "睡觉 sleep",  "anim": "Close_eyes_and_sleeping", "range": [3, 8] }
+  "actions": {
+    "happy": { "label": "开心", "fps": 5,   "folder": "Happy",                  "count": 9 },
+    "idle":  { "label": "待机", "fps": 4,   "folder": "Breathing_Idle",          "count": 4 },
+    "walk":  { "label": "走路", "fps": 8,   "folder": "Crouched_Walking",        "count": 6 },
+    "sleep": { "label": "睡觉", "fps": 2.5, "folder": "Close_eyes_and_sleeping", "count": 9, "intro": [0, 2] }
   },
 
   "triggers": {
-    "buttons": [
-      { "id": "idle",  "label": "待机", "state": "idle" },
-      { "id": "walk",  "label": "走路", "state": "walk" },
-      { "id": "sleep", "label": "睡觉", "state": "yawn" },
-      { "id": "happy", "label": "开心", "state": "happy" }
-    ],
     "drag":      { "during": "walk", "after": "idle" },
     "clickIdle": { "to": "happy", "returnTo": "idle", "afterMs": 2000 },
-    "wake":      { "from": ["sleep", "yawn"], "to": "idle" },
-    "timeout":   { "from": "idle", "to": "yawn", "afterMs": 15000 }
+    "wake":      { "from": ["sleep"], "to": "idle" },
+    "timeout":   { "from": "idle", "to": "sleep", "afterMs": 15000 },
+    "statusActionMs": 2000
   }
 }

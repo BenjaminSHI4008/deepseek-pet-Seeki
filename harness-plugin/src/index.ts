@@ -19,7 +19,8 @@ import z from '@deepseek-ai/schemastery'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
-import type { IncomingMessage } from 'node:http'
+import { readFile, writeFile } from 'node:fs/promises'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import WebSocket, { WebSocketServer } from 'ws'
 import type {} from '@deepseek-ai/dsh-host-webserver'
@@ -151,6 +152,46 @@ export function apply(ctx: Context, config: Config = {}): void {
     for (const ws of clients) ws.terminate()
     server.close()
   }, 'pet-status: cleanup')
+
+  // 配置管理 API（插件作为桌宠管理器，读写 <petDir>/pet.config.json）
+  const configFile = config.petDir ? path.join(config.petDir, 'pet.config.json') : ''
+  if (configFile) {
+    ctx.effect(() => ctx.webServer.register({
+      kind: 'exact',
+      path: '/api/pet.config',
+      handler: async (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method === 'GET') {
+          try {
+            const text = await readFile(configFile, 'utf8')
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(text)
+          } catch {
+            res.writeHead(404, { 'content-type': 'application/json' })
+            res.end('{"ok":false,"error":"config not found"}')
+          }
+        } else if (req.method === 'PUT') {
+          const body = await new Promise<string>((resolve, reject) => {
+            const chunks: Buffer[] = []
+            req.on('data', (c: Buffer) => chunks.push(c))
+            req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+            req.on('error', reject)
+          })
+          try {
+            const cfg = JSON.parse(body)
+            await writeFile(configFile, JSON.stringify(cfg, null, 2) + '\n')
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end('{"ok":true}')
+          } catch (error) {
+            res.writeHead(400, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: String(error) }))
+          }
+        } else {
+          res.writeHead(405)
+          res.end()
+        }
+      },
+    }), 'pet-status: config API')
+  }
 
   // 自动拉起桌宠子进程。
   if (config.autoStart && config.petDir) {

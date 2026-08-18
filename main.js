@@ -1,84 +1,39 @@
-// 渲染层：配置驱动的 2D 精灵状态机（完整版：点击唤醒/开心、拖拽走路、超时睡觉）
+// 渲染层：配置驱动的 2D 精灵（v2：statuses + actions + triggers）
 const canvas = document.getElementById('pet')
 const ctx = canvas.getContext('2d')
 const SCALE = 1.5
-
-// 头顶状态气泡（两态：Deep diving... / 已完成），尽早注册监听避免错过初始推送
 const bubble = document.getElementById('bubble')
-let bubbleWasWorking = false
-let bubbleTimer = null
-let stateMachineReady = false
-let pendingCelebrate = false
 
-// 任务完成 → 开心动作（2 秒后回待机）。状态机就绪前先记下，就绪后补触发。
-function celebrate() {
-  if (!stateMachineReady) {
-    pendingCelebrate = true
-    return
-  }
-  setState('happy')
-  returnTimer = setTimeout(() => { if (state === 'happy') setState('idle') }, 2000)
-}
-
-function updateBubble(status) {
-  clearTimeout(bubbleTimer)
-  if (status === 'working') {
-    bubble.className = 'st-working show'
-    bubble.textContent = 'Deep diving...'
-    bubbleWasWorking = true
-  } else if (status === 'idle') {
-    if (bubbleWasWorking) {
-      // 工作 → 完成：显示「Completed」+ 同步切开心动作
-      bubble.className = 'st-done show'
-      bubble.textContent = 'Completed'
-      bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
-      celebrate()
-    } else {
-      bubble.className = ''
-    }
-    bubbleWasWorking = false
-  } else if (status === 'terminated') {
-    // 报错 / 手动停止：显示「Stopped」，不切开心动作
-    if (bubbleWasWorking) {
-      bubble.className = 'st-terminated show'
-      bubble.textContent = 'Stopped'
-      bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
-    }
-    bubbleWasWorking = false
-  } else {
-    // offline
-    bubble.className = 'st-offline show'
-    bubble.textContent = 'Offline'
-    bubbleWasWorking = false
-  }
-}
-window.petAPI.onStatus(updateBubble)
+// 尽早注册状态监听（避免错过初始推送）；渲染延后到配置加载完成后
+let latestStatus = 'offline'
+let configLoaded = false
+window.petAPI.onStatus((s) => { latestStatus = s; if (configLoaded) renderStatus() })
 
 const config = await (await fetch('./pet.config.json')).json()
 const DIR = config.direction
 const ROOT = 'Deepseek'
-
-function buildFrames(anim, count) {
-  return Array.from({ length: count }, (_, i) =>
-    `${ROOT}/animations/${anim}/${DIR}/frame_${String(i).padStart(3, '0')}.png`,
-  )
-}
-const STATES = {}
-for (const [name, s] of Object.entries(config.states)) {
-  const anim = config.animations[s.anim]
-  if (!anim) throw new Error(`state "${name}" 引用了未声明的动画 "${s.anim}"`)
-  const all = buildFrames(s.anim, anim.count)
-  const [from, to] = s.range ?? [0, anim.count - 1]
-  STATES[name] = {
-    label: s.label,
-    fps: anim.fps,
-    frames: all.slice(from, to + 1),
-    loop: !s.next,
-    next: s.next ?? null,
-  }
-}
+const STATUSES = config.statuses
 const T = config.triggers
 
+// 构建动作：intro（入场帧，播一次）+ loop（循环帧）
+function framePaths(folder, count) {
+  return Array.from({ length: count }, (_, i) =>
+    `${ROOT}/animations/${folder}/${DIR}/frame_${String(i).padStart(3, '0')}.png`,
+  )
+}
+const ACTIONS = {}
+for (const [name, a] of Object.entries(config.actions)) {
+  const all = framePaths(a.folder, a.count)
+  const introEnd = a.intro ? a.intro[1] : -1
+  ACTIONS[name] = {
+    label: a.label,
+    fps: a.fps,
+    intro: introEnd >= 0 ? all.slice(0, introEnd + 1) : [],
+    loop: introEnd >= 0 ? all.slice(introEnd + 1) : all,
+  }
+}
+
+// 预加载所有帧
 const cache = new Map()
 async function loadFrame(path) {
   const img = new Image()
@@ -87,35 +42,41 @@ async function loadFrame(path) {
   cache.set(path, img)
 }
 const allPaths = new Set()
-for (const st of Object.values(STATES)) for (const p of st.frames) allPaths.add(p)
+for (const a of Object.values(ACTIONS)) for (const p of [...a.intro, ...a.loop]) allPaths.add(p)
 await Promise.all([...allPaths].map(loadFrame))
 
-let state = config.defaultState
+// ── 状态机（动作 = 状态，intro 播一次后进入 loop 循环）──────────────
+let state = config.defaultAction
+let phase = ACTIONS[state].intro.length > 0 ? 'intro' : 'loop'
 let frameIdx = 0
 let lastFrameTime = 0
 let sleepDeadline = 0
 
-const cur = () => STATES[state]
+const cur = () => ACTIONS[state]
+const curFrames = () => (phase === 'intro' ? cur().intro : cur().loop)
 const interval = () => 1000 / cur().fps
 
 let sleepTimer = null
 const cancelSleep = () => { if (sleepTimer) { clearTimeout(sleepTimer); sleepTimer = null } }
 let returnTimer = null
 const cancelReturn = () => { if (returnTimer) { clearTimeout(returnTimer); returnTimer = null } }
+let statusActionTimer = null
+const cancelStatusAction = () => { if (statusActionTimer) { clearTimeout(statusActionTimer); statusActionTimer = null } }
 
 function setState(s) {
   state = s
+  phase = ACTIONS[s].intro.length > 0 ? 'intro' : 'loop'
   frameIdx = 0
   lastFrameTime = performance.now()
-  drawFrame(cur().frames[0])
+  drawFrame(curFrames()[0])
   cancelSleep()
   cancelReturn()
+  cancelStatusAction()
   if (s === T.timeout.from) {
     sleepDeadline = performance.now() + T.timeout.afterMs
     sleepTimer = setTimeout(() => setState(T.timeout.to), T.timeout.afterMs)
   }
 }
-function onStateEnd() { if (cur().next) setState(cur().next) }
 
 function drawFrame(path) {
   const img = cache.get(path)
@@ -128,21 +89,66 @@ function drawFrame(path) {
 
 function tick(now) {
   requestAnimationFrame(tick)
-  const st = cur()
+  const frames = curFrames()
   if (now - lastFrameTime >= interval()) {
     lastFrameTime = now
     const next = frameIdx + 1
-    if (next >= st.frames.length) {
-      if (st.loop) frameIdx = 0
-      else { onStateEnd(); return }
+    if (next >= frames.length) {
+      if (phase === 'intro') {
+        phase = 'loop' // intro 播完 → 进入循环
+        frameIdx = 0
+      } else {
+        frameIdx = 0 // 循环
+      }
     } else {
       frameIdx = next
     }
-    drawFrame(st.frames[frameIdx])
+    drawFrame(curFrames()[frameIdx])
   }
 }
 
-// 拖拽 / 点击（拖拽通过 IPC 移动窗口；点击用于状态切换）
+// ── 气泡渲染（从 statuses 读文案/颜色）──────────────
+let bubbleWasWorking = false
+let bubbleTimer = null
+let stateMachineReady = false
+let pendingAction = null
+
+function triggerStatusAction(action) {
+  if (!stateMachineReady) { pendingAction = action; return }
+  setState(action)
+  statusActionTimer = setTimeout(() => { if (state === action) setState(config.defaultAction) }, T.statusActionMs ?? 2000)
+}
+
+function renderStatus() {
+  const status = latestStatus
+  const s = STATUSES[status] ?? STATUSES.offline
+  clearTimeout(bubbleTimer)
+  if (status === 'working') {
+    bubble.textContent = s.text
+    bubble.style.color = s.color
+    bubble.className = 'show'
+    bubbleWasWorking = true
+  } else if (status === 'idle' || status === 'terminated') {
+    if (bubbleWasWorking) {
+      bubble.textContent = s.text
+      bubble.style.color = s.color
+      bubble.className = 'show'
+      bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
+      if (s.action) triggerStatusAction(s.action) // 如 idle → happy
+    } else {
+      bubble.className = ''
+    }
+    bubbleWasWorking = false
+  } else {
+    // offline
+    bubble.textContent = s.text
+    bubble.style.color = s.color
+    bubble.className = 'show'
+    bubbleWasWorking = false
+  }
+}
+
+// ── 拖拽 / 点击（拖拽通过 IPC 移动窗口；点击用于状态切换）──────────────
 let dragging = false
 let moved = false
 let downState = null
@@ -174,13 +180,15 @@ window.addEventListener('mouseup', () => {
   dragging = false
 })
 
-// 就绪后主动拉取一次当前状态（兜底：即使错过了初始推送也能同步）
-updateBubble(await window.petAPI.getStatus())
-
+// ── 就绪 ──────────────
+latestStatus = await window.petAPI.getStatus() // 同步主进程当前状态（兜底）
+configLoaded = true
+renderStatus()
 stateMachineReady = true
-setState(config.defaultState)
-if (pendingCelebrate) {
-  pendingCelebrate = false
-  celebrate() // 启动时就已完成的任务：补一次开心
+setState(config.defaultAction)
+if (pendingAction) {
+  const a = pendingAction
+  pendingAction = null
+  triggerStatusAction(a) // 启动时就已完成的任务：补一次开心
 }
 requestAnimationFrame(tick)
