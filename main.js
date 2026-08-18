@@ -7,6 +7,19 @@ const SCALE = 1.5
 const bubble = document.getElementById('bubble')
 let bubbleWasWorking = false
 let bubbleTimer = null
+let stateMachineReady = false
+let pendingCelebrate = false
+
+// 任务完成 → 开心动作（2 秒后回待机）。状态机就绪前先记下，就绪后补触发。
+function celebrate() {
+  if (!stateMachineReady) {
+    pendingCelebrate = true
+    return
+  }
+  setState('happy')
+  returnTimer = setTimeout(() => { if (state === 'happy') setState('idle') }, 2000)
+}
+
 function updateBubble(status) {
   clearTimeout(bubbleTimer)
   if (status === 'working') {
@@ -15,10 +28,11 @@ function updateBubble(status) {
     bubbleWasWorking = true
   } else if (status === 'idle') {
     if (bubbleWasWorking) {
-      // 工作 → 完成：显示「已完成」数秒后隐藏
+      // 工作 → 完成：显示「已完成」+ 同步切开心动作
       bubble.textContent = '已完成'
       bubble.classList.add('show')
       bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
+      celebrate()
     } else {
       bubble.classList.remove('show')
     }
@@ -155,5 +169,10 @@ window.addEventListener('mouseup', () => {
 // 就绪后主动拉取一次当前状态（兜底：即使错过了初始推送也能同步）
 updateBubble(await window.petAPI.getStatus())
 
+stateMachineReady = true
 setState(config.defaultState)
+if (pendingCelebrate) {
+  pendingCelebrate = false
+  celebrate() // 启动时就已完成的任务：补一次开心
+}
 requestAnimationFrame(tick)
