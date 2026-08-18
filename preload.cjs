@@ -1,4 +1,4 @@
-// preload：向渲染层暴露拖拽窗口 + 接收状态的 IPC 接口
+// preload：向渲染层暴露拖拽窗口 + 接收/拉取状态的 IPC 接口
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('petAPI', {
@@ -7,4 +7,5 @@ contextBridge.exposeInMainWorld('petAPI', {
   onStatus: (callback) => {
     ipcRenderer.on('pet-status', (_event, status) => callback(status))
   },
+  getStatus: () => ipcRenderer.invoke('pet-get-status'),
 })

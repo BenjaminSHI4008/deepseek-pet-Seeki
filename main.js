@@ -3,6 +3,35 @@ const canvas = document.getElementById('pet')
 const ctx = canvas.getContext('2d')
 const SCALE = 1.5
 
+// 头顶状态气泡（两态：Deep diving... / 已完成），尽早注册监听避免错过初始推送
+const bubble = document.getElementById('bubble')
+let bubbleWasWorking = false
+let bubbleTimer = null
+function updateBubble(status) {
+  clearTimeout(bubbleTimer)
+  if (status === 'working') {
+    bubble.textContent = 'Deep diving...'
+    bubble.classList.add('show')
+    bubbleWasWorking = true
+  } else if (status === 'idle') {
+    if (bubbleWasWorking) {
+      // 工作 → 完成：显示「已完成」数秒后隐藏
+      bubble.textContent = '已完成'
+      bubble.classList.add('show')
+      bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
+    } else {
+      bubble.classList.remove('show')
+    }
+    bubbleWasWorking = false
+  } else {
+    // offline
+    bubble.textContent = '📡 离线'
+    bubble.classList.add('show')
+    bubbleWasWorking = false
+  }
+}
+window.petAPI.onStatus(updateBubble)
+
 const config = await (await fetch('./pet.config.json')).json()
 const DIR = config.direction
 const ROOT = 'Deepseek'
@@ -123,26 +152,8 @@ window.addEventListener('mouseup', () => {
   dragging = false
 })
 
-// 头顶状态气泡（来自 harness 的 agent 活动状态）
-const bubble = document.getElementById('bubble')
-const STATUS_LABEL = {
-  thinking: '💭 思考中',
-  searching: '🔍 搜索中',
-  working: '🛠️ 工作中',
-  generating: '✍️ 生成中',
-  idle: '',
-  offline: '📡 离线',
-}
-function updateBubble(status) {
-  if (status === 'idle') {
-    bubble.classList.remove('show')
-    return
-  }
-  bubble.textContent = STATUS_LABEL[status] ?? status
-  bubble.classList.add('show')
-}
-window.petAPI.onStatus(updateBubble)
-updateBubble('offline') // 未连上 harness 前默认显示离线
+// 就绪后主动拉取一次当前状态（兜底：即使错过了初始推送也能同步）
+updateBubble(await window.petAPI.getStatus())
 
 setState(config.defaultState)
 requestAnimationFrame(tick)

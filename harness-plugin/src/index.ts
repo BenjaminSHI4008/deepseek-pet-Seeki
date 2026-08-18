@@ -1,17 +1,12 @@
 /**
  * dsh-pet-status — DeepSeek Harness 桌宠状态广播插件。
  *
- * 订阅 harness 的两条事件流，把 agent 当前活动派生为一个 PetStatus，并经本地
- * WebSocket 广播给桌宠客户端：
- *
- *   - `host` 流里的 `host/session-status`（running 布尔）决定「空闲 vs 工作中」；
- *   - `mux` 流里的 `assistant/chunk` 原始流式事件决定细粒度状态：
- *       reasoning-delta  → thinking
- *       tool-call-delta  → searching（工具名含 search）或 working
- *       text-delta       → generating
+ * 只订阅 host 事件流里的 `host/session-status`（agent running 翻转），把状态收敛为两态：
+ *   - `working`：至少一个会话在运行（agent 工作中）；
+ *   - `idle`：没有会话在运行（任务完成 / 空闲）。
  *
  * WebSocket 协议（JSON 文本帧）：
- *   服务器 → 客户端：{ "type": "status", "status": "idle" | "thinking" | ... }
+ *   服务器 → 客户端：{ "type": "status", "status": "working" | "idle" }
  *   客户端 → 服务器：v1 忽略；v2 预留消息上行位（桌宠输入 → harness）。
  *
  * @module dsh-pet-status
@@ -39,23 +34,7 @@ export interface Config {
 }
 
 /** 桌宠活动状态。 */
-export type PetStatus = 'idle' | 'thinking' | 'searching' | 'working' | 'generating'
-
-/** 由一条流式 chunk 派生状态；不认识（block 边界/usage/finish）返回 null 表示不变。 */
-function statusFromChunk(chunk: { type: string; name?: string }): PetStatus | null {
-  switch (chunk.type) {
-    case 'reasoning-delta':
-      return 'thinking'
-    case 'text-delta':
-      return 'generating'
-    case 'tool-call-delta':
-      return chunk.name !== undefined && chunk.name.toLowerCase().includes('search')
-        ? 'searching'
-        : 'working'
-    default:
-      return null
-  }
-}
+export type PetStatus = 'idle' | 'working'
 
 /**
  * Mounts the status broadcaster.
@@ -67,11 +46,10 @@ export function apply(ctx: Context, config: Config = {}): void {
   const server = new WebSocketServer({ noServer: true })
   const clients = new Set<WebSocket>()
 
-  // 聚合状态：running 集合判定「空闲 vs 工作中」，status 记录最近一次细粒度 chunk。
-  let status: PetStatus = 'thinking'
+  // 正在运行的会话集合：非空 = working，空 = idle。
   const running = new Set<string>()
 
-  const current = (): PetStatus => (running.size === 0 ? 'idle' : status)
+  const current = (): PetStatus => (running.size === 0 ? 'idle' : 'working')
   const broadcast = (): void => {
     const payload = JSON.stringify({ type: 'status', status: current() })
     for (const ws of clients) {
@@ -79,26 +57,11 @@ export function apply(ctx: Context, config: Config = {}): void {
     }
   }
 
-  // 订阅事件流（dispose 时 abort）。
+  // 订阅 host 事件流（dispose 时 abort）。
   ctx.effect(() => {
     const abort = new AbortController()
     const api: ApiProxy = ctx.apiProxy
-    const mux = api.events.mux({ rpcId: RpcId(randomUUID()), payload: {} }, abort.signal)
     const host = api.events.host({ rpcId: RpcId(randomUUID()), payload: {} }, abort.signal)
-
-    void (async () => {
-      for await (const frame of mux) {
-        const payload = frame.payload
-        if (payload.type !== 'session/event') continue
-        const event = payload.event
-        if (event.type !== 'assistant/chunk') continue
-        const next = statusFromChunk(event.data.chunk)
-        if (next !== null) {
-          status = next
-          broadcast()
-        }
-      }
-    })().catch(() => {})
 
     void (async () => {
       for await (const frame of host) {
@@ -111,7 +74,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     })().catch(() => {})
 
     return () => abort.abort()
-  }, 'pet-status: event streams')
+  }, 'pet-status: host stream')
 
   // WebSocket 升级路由。
   ctx.effect(() => ctx.webServer.registerUpgrade({

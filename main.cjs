@@ -20,12 +20,17 @@ let mainWindow = null
 let ws = null
 let reconnectTimer = null
 let reconnectDelay = 1000
+let latestStatus = 'offline' // 记录最新状态，供渲染层就绪后主动拉取
 
 function pushStatus(status) {
+  latestStatus = status
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('pet-status', status)
   }
 }
+
+// 渲染层就绪后主动拉取当前状态，避免错过初始推送（竞态）。
+ipcMain.handle('pet-get-status', () => latestStatus)
 
 function connect() {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
