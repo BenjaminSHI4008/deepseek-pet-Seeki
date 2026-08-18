@@ -35,12 +35,11 @@
         transform: translateX(-50%);
         /* 像素字体：英文走 Press Start 2P（真 8-bit），中文走缝合像素字体（真点阵） */
         font-family: 'Press Start 2P', 'Fusion Pixel', monospace;
-        font-size: 24px;           /* 12px 点阵的 2 倍，整数倍缩放保证像素锐利 */
+        font-size: 18px;           /* 中文字号（缩小一档） */
         line-height: 1.2;
-        letter-spacing: 2px;       /* 点阵字体自带网格，字距不宜过大 */
-        -webkit-font-smoothing: none; /* 关闭抗锯齿，保证像素边缘锐利 */
-        /* 硬像素阴影：实黑 + 足够偏移，不与字形粘连 */
-        text-shadow: 2px 2px 0 #000;
+        letter-spacing: 3px;       /* 字距 */
+        /* 硬像素阴影：实黑 + 足够偏移，保留立体感（不加 font-smoothing，避免吞掉阴影） */
+        text-shadow: 3px 3px 0 #000;
         white-space: nowrap;
         pointer-events: none;
         display: none;
