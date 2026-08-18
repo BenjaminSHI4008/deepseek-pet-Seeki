@@ -23,60 +23,41 @@ DeepSeek Harness 桌宠状态广播插件：订阅 harness 的 `host/session-sta
 - 连接建立即推送一次当前状态（避免空窗）。
 - v1 忽略客户端上行；v2 预留「桌宠输入 → harness」的上行位。
 
-## 加载方式
+## 加载方式（一键安装到 dsh web profile）
 
-插件依赖 harness 工作区里的 `@deepseek-ai/dsh-*` 包，所以**必须放在 harness 的模块解析路径内**（软链到外部目录不行——模块会从外部目录解析，找不到 `@deepseek-ai/*`）。
+插件依赖 harness 的 `@deepseek-ai/dsh-*` 包，这些包在 `~/.dsh/profiles/node_modules/` 里，所以插件要装到那里（软链到外部目录不行）。
 
-推荐做法：把插件复制进 harness 工作区作为一个临时包。
-
-```sh
-cd <deepseek-harness>
-mkdir -p packages/extensions/pet-status/src
-cp <deepseek-pet>/harness-plugin/src/index.ts packages/extensions/pet-status/src/index.ts
-```
-
-再在 `packages/extensions/pet-status/package.json` 写：
-
-```json
-{
-  "name": "dsh-pet-status",
-  "version": "0.1.0",
-  "type": "module",
-  "main": "src/index.ts",
-  "dependencies": { "ws": "^8.18.0" },
-  "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:^",
-    "@deepseek-ai/dsh-host-webserver": "workspace:^",
-    "@deepseek-ai/dsh-host-apiproxy": "workspace:^"
-  },
-  "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:^",
-    "@deepseek-ai/dsh-host-webserver": "workspace:^",
-    "@deepseek-ai/dsh-host-apiproxy": "workspace:^",
-    "@types/ws": "^8.5.12"
-  }
-}
-```
-
-然后：
+直接运行桌宠仓库里的安装脚本：
 
 ```sh
-pnpm install
+cd <deepseek-pet>
+bash scripts/install-harness-plugin.sh
 ```
 
-在 profile 的 cordis.patch.yml（或 `dsh --patch`）里加一行：
+脚本会：① 把插件复制到 `~/.dsh/profiles/node_modules/dsh-pet-status/`；② 写进 profile 的依赖清单；③ 在 `cordis.patch.yml` 里挂载插件并开启 `autoStart`。
+
+## 自动拉起桌宠
+
+插件配置：
 
 ```yaml
 - insert:
     - id: pet-status
       name: 'dsh-pet-status'
+      config:
+        autoStart: true          # 启动 harness 时自动拉起桌宠
+        petDir: '<deepseek-pet>' # 桌宠应用目录
+        path: '/api/pet.ws'      # WebSocket 路径（可省略）
 ```
 
-启动：
+之后直接：
 
 ```sh
-dsh --profile web --patch /path/to/patch.yml
+cd ~/Projects/deepseek-harness
+pnpm dsh web        # 会同时：加载插件 + 自动拉起桌宠
 ```
+
+停止 `dsh web`（Ctrl+C）时，桌宠会随之一并关闭。
 
 验证（应收到 `{"type":"status","status":"idle"}`）：
 

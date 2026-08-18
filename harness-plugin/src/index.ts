@@ -1,19 +1,24 @@
 /**
  * dsh-pet-status — DeepSeek Harness 桌宠状态广播插件。
  *
- * 只订阅 host 事件流里的 `host/session-status`（agent running 翻转），把状态收敛为两态：
- *   - `working`：至少一个会话在运行（agent 工作中）；
- *   - `idle`：没有会话在运行（任务完成 / 空闲）。
+ * 1) 订阅 host 事件流里的 `host/session-status`（agent running 翻转），把状态收敛为两态：
+ *    - `working`：至少一个会话在运行（agent 工作中）；
+ *    - `idle`：没有会话在运行（任务完成 / 空闲）。
+ * 2) 经本地 WebSocket 广播状态。
+ * 3) （可选）启动时自动拉起桌宠（Electron 子进程），退出时一并关闭 —— 实现
+ *    「`pnpm dsh web` 时桌宠同步启动」。
  *
  * WebSocket 协议（JSON 文本帧）：
  *   服务器 → 客户端：{ "type": "status", "status": "working" | "idle" }
- *   客户端 → 服务器：v1 忽略；v2 预留消息上行位（桌宠输入 → harness）。
  *
  * @module dsh-pet-status
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
 import { randomUUID } from 'node:crypto'
+import { spawn, type ChildProcess } from 'node:child_process'
+import path from 'node:path'
 import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 import WebSocket, { WebSocketServer } from 'ws'
@@ -29,20 +34,30 @@ export const inject = ['webServer', 'apiProxy']
 
 /** Plugin config. */
 export interface Config {
-  /** WebSocket 路径，默认 `/api/pet.ws`。 */
+  /** WebSocket 路径。 */
   path?: string
+  /** 桌宠应用目录（Electron 应用根，含 package.json + node_modules/.bin/electron）。 */
+  petDir?: string
+  /** 启动时自动拉起桌宠。 */
+  autoStart?: boolean
 }
+
+export const Config: z<Config> = z.object({
+  path: z.string().default('/api/pet.ws'),
+  petDir: z.string().default(''),
+  autoStart: z.boolean().default(false),
+})
 
 /** 桌宠活动状态。 */
 export type PetStatus = 'idle' | 'working'
 
 /**
- * Mounts the status broadcaster.
+ * Mounts the status broadcaster (and optionally the pet subprocess).
  * @param ctx - Plugin context carrying webServer + apiProxy.
  * @param config - resolved {@link Config}.
  */
 export function apply(ctx: Context, config: Config = {}): void {
-  const path = config.path ?? '/api/pet.ws'
+  const pathname = config.path ?? '/api/pet.ws'
   const server = new WebSocketServer({ noServer: true })
   const clients = new Set<WebSocket>()
 
@@ -78,7 +93,7 @@ export function apply(ctx: Context, config: Config = {}): void {
 
   // WebSocket 升级路由。
   ctx.effect(() => ctx.webServer.registerUpgrade({
-    path,
+    path: pathname,
     handler: (req: IncomingMessage, socket: Duplex, head: Buffer) => {
       server.handleUpgrade(req, socket, head, (ws) => {
         clients.add(ws)
@@ -97,4 +112,21 @@ export function apply(ctx: Context, config: Config = {}): void {
     for (const ws of clients) ws.terminate()
     server.close()
   }, 'pet-status: cleanup')
+
+  // 自动拉起桌宠子进程。
+  if (config.autoStart && config.petDir) {
+    const electronBin = path.join(config.petDir, 'node_modules', '.bin', 'electron')
+    const wsUrl = `ws://127.0.0.1:${String(ctx.webServer.port)}${pathname}`
+    const child: ChildProcess = spawn(electronBin, ['.'], {
+      cwd: config.petDir,
+      env: { ...process.env, PET_WS_URL: wsUrl },
+      stdio: 'ignore',
+    })
+    child.on('error', (error) => {
+      console.error('[pet-status] 拉起桌宠失败：', error)
+    })
+    ctx.effect(() => () => {
+      child.kill()
+    }, 'pet-status: pet subprocess')
+  }
 }

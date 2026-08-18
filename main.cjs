@@ -13,7 +13,8 @@ try {
 } catch (error) {
   console.error('读取 pet.config.json 失败：', error)
 }
-const WS_URL = petConfig.server?.wsUrl ?? 'ws://127.0.0.1:3080/api/pet.ws'
+// 优先用 harness 插件通过环境变量传入的地址（端口随 harness 实际绑定端口变化）
+const WS_URL = process.env.PET_WS_URL ?? petConfig.server?.wsUrl ?? 'ws://127.0.0.1:3080/api/pet.ws'
 
 // ── 连接 harness 状态流 ────────────────────────────────────────────────
 let mainWindow = null
