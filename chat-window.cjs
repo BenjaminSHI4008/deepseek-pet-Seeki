@@ -21,6 +21,8 @@ class ChatWindow {
       width: this.width,
       height: this.height,
       frame: false, // 像素风无边框，自绘标题栏
+      transparent: true, // 透明背景，让圆角气泡 + 尖角正确显示
+      hasShadow: false,
       resizable: true,
       alwaysOnTop: true,
       skipTaskbar: false,
@@ -30,7 +32,8 @@ class ChatWindow {
         webSecurity: false,
       },
     })
-    this.win.setAlwaysOnTop(true, 'screen-saver')
+    // floating 级别：置顶但不压过系统输入法候选条（screen-saver 会盖住候选条导致打字看不到）
+    this.win.setAlwaysOnTop(true, 'floating')
     this.positionNear(anchor)
     this.win.loadFile('chat.html')
     this.win.on('closed', () => { this.win = null })
@@ -38,10 +41,15 @@ class ChatWindow {
 
   positionNear(anchor) {
     const { workAreaSize } = screen.getPrimaryDisplay()
+    const MIN_BOTTOM_SPACE = 240 // 输入框下方给系统输入法候选条留的空间
     const ax = anchor ? anchor[0] : workAreaSize.width - this.width - 40
     const ay = anchor ? anchor[1] : workAreaSize.height - this.height - 40
     const x = Math.min(Math.max(ax, 0), workAreaSize.width - this.width)
-    const y = Math.min(Math.max(ay - this.height - 8, 0), workAreaSize.height - this.height)
+    // 优先放桌宠上方；若输入框会太靠屏幕底部（遮挡候选条），则整体上移
+    let y = ay - this.height - 12
+    const maxY = workAreaSize.height - this.height - MIN_BOTTOM_SPACE
+    if (y > maxY) y = maxY
+    y = Math.max(y, 0)
     this.win.setPosition(Math.round(x), Math.round(y))
   }
 
