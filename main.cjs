@@ -92,6 +92,8 @@ ipcMain.on('chat-cancel', () => {
     ws.send(JSON.stringify({ type: 'chat-cancel' }))
   }
 })
+// 气泡随内容自适应尺寸（renderer 上报内容高度）
+ipcMain.on('chat-resize', (_e, height) => chatWindow.resize(height))
 // 气泡右键打断（与桌宠右键菜单「更改配置/退出」隔开）
 ipcMain.on('pet-cancel-chat', () => {
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -156,6 +158,7 @@ ipcMain.on('pet-drag-move', (e, { sx, sy }) => {
     Math.round(dragStartWin[0] + (sx - dragStartScreen.sx)),
     Math.round(dragStartWin[1] + (sy - dragStartScreen.sy)),
   )
+  if (chatWindow.isOpen) chatWindow.follow(win.getPosition()) // 聊天气泡跟随桌宠移动
 })
 
 function createWindow() {

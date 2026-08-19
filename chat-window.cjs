@@ -1,79 +1,93 @@
-// 聊天窗口管理：单一职责——聊天框窗口的创建 / 显示 / 关闭 / 推送。
-// 桌宠主窗口仍是 240×240 透明精灵，聊天框是独立窗口，二者互不影响。
+// 聊天窗口管理：单一职责——聊天气泡窗口的创建 / 显示 / 尺寸自适应 / 跟随桌宠 / 关闭。
+// 气泡始终锚定在桌宠头顶上方，随内容自动伸缩，随桌宠移动而跟随。
 const { BrowserWindow, screen } = require('electron')
 const path = require('path')
 
+const WIDTH = 300 // 气泡固定宽度
+const MIN_HEIGHT = 140 // 小气泡
+const MAX_HEIGHT = 440 // 大气泡（含尖角空间）
+const TAIL_SPACE = 16 // 底部尖角留白（chat.html body 的 padding-bottom）
+const GAP = 4 // 气泡底部与桌宠头顶的间距
+
 class ChatWindow {
-  constructor({ width = 360, height = 480 } = {}) {
-    this.width = width
-    this.height = height
+  constructor() {
     this.win = null
+    this.anchor = null // 桌宠窗口位置 [x, y]
   }
 
-  // 打开（已存在则聚焦），anchor 为桌宠窗口位置 [x, y]，聊天框贴近桌宠
+  get isOpen() {
+    return !!this.win && !this.win.isDestroyed()
+  }
+
+  // 打开（已存在则聚焦）。anchor 为桌宠窗口位置 [x, y]
   show(anchor) {
-    if (this.win && !this.win.isDestroyed()) {
+    if (this.isOpen) {
+      this.anchor = anchor
       this.win.show()
       this.win.focus()
       return
     }
+    this.anchor = anchor
     this.win = new BrowserWindow({
-      width: this.width,
-      height: this.height,
-      frame: false, // 像素风无边框，自绘标题栏
-      transparent: true, // 透明背景，让圆角气泡 + 尖角正确显示
+      width: WIDTH,
+      height: MIN_HEIGHT,
+      frame: false,
+      transparent: true,
       hasShadow: false,
-      resizable: true,
-      alwaysOnTop: true,
-      skipTaskbar: false,
+      resizable: false, // 由内容自适应，禁止手动拉伸
+      alwaysOnTop: false, // 普通层级，避免压住系统输入法候选条（打字可见）
+      skipTaskbar: true, // 轻量气泡，不占任务栏
       webPreferences: {
         contextIsolation: true,
         preload: path.join(__dirname, 'chat-preload.cjs'),
         webSecurity: false,
       },
     })
-    // floating 级别：置顶但不压过系统输入法候选条（screen-saver 会盖住候选条导致打字看不到）
-    this.win.setAlwaysOnTop(true, 'floating')
-    this.positionNear(anchor)
     this.win.loadFile('chat.html')
     this.win.on('closed', () => { this.win = null })
+    this.anchorToPet()
   }
 
-  positionNear(anchor) {
+  // 气泡底部（尖角）锚定在桌宠头顶上方，水平居中于桌宠
+  anchorToPet() {
+    if (!this.isOpen) return
+    const [w, h] = this.win.getSize()
     const { workAreaSize } = screen.getPrimaryDisplay()
-    const MIN_BOTTOM_SPACE = 240 // 输入框下方给系统输入法候选条留的空间
-    const ax = anchor ? anchor[0] : workAreaSize.width - this.width - 40
-    const ay = anchor ? anchor[1] : workAreaSize.height - this.height - 40
-    const x = Math.min(Math.max(ax, 0), workAreaSize.width - this.width)
-    // 优先放桌宠上方；若输入框会太靠屏幕底部（遮挡候选条），则整体上移
-    let y = ay - this.height - 12
-    const maxY = workAreaSize.height - this.height - MIN_BOTTOM_SPACE
-    if (y > maxY) y = maxY
-    y = Math.max(y, 0)
-    this.win.setPosition(Math.round(x), Math.round(y))
+    const petX = this.anchor ? this.anchor[0] : workAreaSize.width - 240 - 40
+    const petY = this.anchor ? this.anchor[1] : workAreaSize.height - 240 - 40
+    const x = Math.round(Math.min(Math.max(petX + 120 - w / 2, 0), workAreaSize.width - w))
+    const y = Math.round(Math.max(petY - h - GAP, 0))
+    this.win.setPosition(x, y)
   }
 
-  close() {
-    if (this.win && !this.win.isDestroyed()) this.win.close()
+  // 根据内容高度自适应窗口：气泡从桌宠头顶向上生长，底部保持锚定
+  resize(contentHeight) {
+    if (!this.isOpen) return
+    const h = Math.round(Math.min(Math.max(contentHeight + TAIL_SPACE, MIN_HEIGHT), MAX_HEIGHT))
+    const [, oldH] = this.win.getSize()
+    if (h === oldH) return
+    this.win.setSize(WIDTH, h)
+    this.anchorToPet() // 重新锚定，保持底部尖角始终指向桌宠
   }
 
-  // 收起（输入后转由桌宠显示 Deep diving，聊天框隐藏但继续接收流式输出）
-  hide() {
-    if (this.win && !this.win.isDestroyed()) this.win.hide()
+  // 桌宠移动时跟随（保持相对位置）
+  follow(anchor) {
+    this.anchor = anchor
+    this.anchorToPet()
   }
 
-  // 展开（会话完成时重新显示，展示输出内容，不重新定位）
+  close() { if (this.isOpen) this.win.close() }
+
+  // 收起（输入后转由桌宠显示 Deep diving，气泡隐藏但继续接收流式输出与尺寸变化）
+  hide() { if (this.isOpen) this.win.hide() }
+
+  // 展开（会话完成时重新显示，展示输出内容）
   reveal() {
-    if (this.win && !this.win.isDestroyed()) {
-      this.win.show()
-      this.win.focus()
-    }
+    if (this.isOpen) { this.win.show(); this.win.focus() }
   }
 
-  // 向聊天框渲染层推送事件（P2：流式回复 / 状态）
-  send(channel, payload) {
-    if (this.win && !this.win.isDestroyed()) this.win.webContents.send(channel, payload)
-  }
+  // 向气泡渲染层推送事件
+  send(channel, payload) { if (this.isOpen) this.win.webContents.send(channel, payload) }
 }
 
 module.exports = { ChatWindow }
