@@ -1,7 +1,8 @@
 // Electron 主进程：透明、无边框、置顶的桌宠窗口 + 连接 harness 状态流
-const { app, BrowserWindow, Menu, screen, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, Menu, screen, ipcMain, shell, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const os = require('os')
 const WebSocket = require('ws')
 const { ChatWindow } = require('./chat-window.cjs')
 
@@ -22,6 +23,35 @@ const SETTINGS_URL = WS_URL.replace(/^ws/, 'http').replace(/\/api\/pet\.ws$/, ''
 // 聊天窗口（双击桌宠打开）
 const chatWindow = new ChatWindow()
 
+// ── 聊天工作区（会话记录存放的文件夹）───────────────────────────────
+const chatConfigPath = path.join(app.getPath('userData'), 'chat.config.json')
+let chatConfig = {}
+try {
+  chatConfig = JSON.parse(fs.readFileSync(chatConfigPath, 'utf8'))
+} catch {
+  // 首次运行，无配置
+}
+function saveChatConfig() {
+  fs.mkdirSync(path.dirname(chatConfigPath), { recursive: true })
+  fs.writeFileSync(chatConfigPath, JSON.stringify(chatConfig, null, 2))
+}
+// 确保工作区已选：未选则弹文件夹选择（默认 ~/deepseek-pet，可新建/自选），取消返回 null
+function ensureWorkspace() {
+  if (chatConfig.workspacePath) return chatConfig.workspacePath
+  const result = dialog.showOpenDialogSync({
+    title: '选择桌宠对话工作区（存放聊天记录）',
+    defaultPath: path.join(os.homedir(), 'deepseek-pet'),
+    buttonLabel: '使用此文件夹',
+    properties: ['openDirectory', 'createDirectory'],
+  })
+  if (!result || result.length === 0) return null
+  const dir = result[0]
+  fs.mkdirSync(dir, { recursive: true })
+  chatConfig.workspacePath = dir
+  saveChatConfig()
+  return dir
+}
+
 // ── 连接 harness 状态流 ────────────────────────────────────────────────
 let mainWindow = null
 let ws = null
@@ -41,17 +71,29 @@ ipcMain.handle('pet-get-status', () => latestStatus)
 
 // ── 聊天框 ───────────────────────────────────────────────────────────
 ipcMain.handle('pet-open-chat', () => {
+  if (!ensureWorkspace()) return // 用户取消选择工作区，则不打开聊天框
   const pos = mainWindow && !mainWindow.isDestroyed() ? mainWindow.getPosition() : null
   chatWindow.show(pos)
 })
 ipcMain.on('chat-close', () => chatWindow.close())
 ipcMain.on('chat-send', (_e, text) => {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'chat', text }))
+    ws.send(JSON.stringify({ type: 'chat', text, workspacePath: chatConfig.workspacePath }))
   }
   chatWindow.hide() // 输入后收起聊天框，转由桌宠气泡显示 Deep diving
 })
+ipcMain.on('chat-new', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'chat-new' }))
+  }
+})
 ipcMain.on('chat-cancel', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'chat-cancel' }))
+  }
+})
+// 气泡右键打断（与桌宠右键菜单「更改配置/退出」隔开）
+ipcMain.on('pet-cancel-chat', () => {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'chat-cancel' }))
   }

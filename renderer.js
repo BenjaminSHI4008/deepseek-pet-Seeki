@@ -208,11 +208,13 @@ function renderStatus() {
   else if (status === 'idle') status = 'completed'
   const s = STATUSES[status] ?? STATUSES.offline
   clearTimeout(bubbleTimer)
+  bubble.style.pointerEvents = 'none' // 默认气泡不可交互；仅「运行中」可右键打断
   if (status === 'running') {
-    // 任务进行：持续显示气泡
+    // 任务进行：持续显示气泡（运行中可右键打断会话）
     bubble.textContent = s.text
     bubble.style.color = s.color
     bubble.className = 'show'
+    bubble.style.pointerEvents = 'auto'
     bubbleWasWorking = true
   } else if (status === 'completed' || status === 'terminated') {
     // 任务结束：短暂闪一下结果气泡
@@ -312,6 +314,14 @@ window.addEventListener('mouseup', () => {
 // 指针样式跟随命中范围：仅悬停在角色像素上显示「抓手」，拖动中显示「抓取中」
 canvas.addEventListener('mousemove', (e) => {
   canvas.style.cursor = dragging ? 'grabbing' : (hitTest(e.clientX, e.clientY) ? 'grab' : 'default')
+})
+
+// 气泡右键打断：仅「运行中（Deep diving）」气泡可交互，右键 → 打断当前会话（与桌宠右键菜单隔开）
+bubble.addEventListener('contextmenu', (e) => {
+  if (latestStatus !== 'running') return
+  e.preventDefault()
+  e.stopPropagation()
+  if (window.confirm('打断当前会话？')) window.petAPI.cancelChat()
 })
 
 // ── 就绪 ──────────────

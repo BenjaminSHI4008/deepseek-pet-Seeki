@@ -94,6 +94,8 @@ function extractText(message: unknown): string {
  */
 class ChatService {
   private sessionId: string | null = null
+  private workspacePath: string | null = null
+  private workspaceId: string | null = null
   private readonly api: ApiProxy
   private readonly emit: (msg: Record<string, unknown>) => void
 
@@ -102,25 +104,49 @@ class ChatService {
     this.emit = emit
   }
 
-  async ensureSession(): Promise<string> {
+  /** 确保工作区存在（幂等）：换工作区则顺带重置会话。 */
+  async ensureWorkspace(path: string): Promise<string> {
+    if (this.workspaceId && this.workspacePath === path) return this.workspaceId
+    const res = await this.api.workspace.create({ rpcId: RpcId(randomUUID()), payload: { path } })
+    if (!res.result.ok) throw new Error(`工作区创建失败：${res.result.error.code}`)
+    this.workspacePath = path
+    this.workspaceId = String(res.result.value.workspace.workspaceId)
+    this.sessionId = null // 换工作区 = 新会话
+    return this.workspaceId
+  }
+
+  async ensureSession(workspacePath: string): Promise<string> {
     if (this.sessionId) return this.sessionId
-    const res = await this.api.sessions.create({ rpcId: RpcId(randomUUID()), payload: {} })
-    this.sessionId = String(res.sessionId)
+    const workspaceId = await this.ensureWorkspace(workspacePath)
+    const res = await this.api.sessions.create({ rpcId: RpcId(randomUUID()), payload: { workspaceId } })
+    if (!res.result.ok) throw new Error(`会话创建失败：${res.result.error.code}`)
+    this.sessionId = String(res.result.value.sessionId)
     return this.sessionId
   }
 
-  async send(text: string): Promise<void> {
-    const sessionId = await this.ensureSession()
-    await this.api.sessions.prompt({
-      rpcId: RpcId(randomUUID()),
-      payload: { sessionId, mode: 'queue', content: [{ type: 'text', text }] },
-    })
-    this.emit({ type: 'chat-started' })
+  async send(text: string, workspacePath: string): Promise<void> {
+    try {
+      const sessionId = await this.ensureSession(workspacePath)
+      const res = await this.api.sessions.prompt({
+        rpcId: RpcId(randomUUID()),
+        payload: { sessionId, mode: 'queue', content: [{ type: 'text', text }] },
+      })
+      if (!res.result.ok) throw new Error(`prompt 失败：${res.result.error.code}`)
+      this.emit({ type: 'chat-started' })
+    } catch (error) {
+      this.emit({ type: 'chat-error', message: String(error) })
+    }
+  }
+
+  /** 另起新对话：下次 send 会用新会话（同一工作区内）。 */
+  newConversation(): void {
+    this.sessionId = null
   }
 
   async cancel(): Promise<void> {
     if (!this.sessionId) return
-    await this.api.sessions.cancel({ rpcId: RpcId(randomUUID()), payload: { sessionId: this.sessionId } })
+    const res = await this.api.sessions.cancel({ rpcId: RpcId(randomUUID()), payload: { sessionId: this.sessionId } })
+    if (!res.result.ok) throw new Error(`打断失败：${res.result.error.code}`)
   }
 
   /** 处理 mux 流帧：仅关心本会话的 assistant 文本事件（分片/完整消息/结束）。 */
@@ -234,8 +260,9 @@ export function apply(ctx: Context, config: Config = {}): void {
         ws.on('error', () => clients.delete(ws))
         ws.on('message', (data) => {
           try {
-            const msg = JSON.parse(data.toString()) as { type?: string; text?: string }
-            if (msg.type === 'chat') void chat.send(msg.text ?? '')
+            const msg = JSON.parse(data.toString()) as { type?: string; text?: string; workspacePath?: string }
+            if (msg.type === 'chat') void chat.send(msg.text ?? '', msg.workspacePath ?? '')
+            else if (msg.type === 'chat-new') chat.newConversation()
             else if (msg.type === 'chat-cancel') void chat.cancel()
           } catch {
             // 非 JSON 消息忽略

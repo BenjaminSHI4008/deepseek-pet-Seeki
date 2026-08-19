@@ -27,6 +27,8 @@
     .titlebar .t { font-size: 11px; }
     .titlebar .close { cursor: pointer; color: var(--muted); font-size: 14px; padding: 0 4px; }
     .titlebar .close:hover { color: #ff5252; }
+    .titlebar .action { cursor: pointer; color: var(--accent); font-size: 9px; margin-right: 12px; }
+    .titlebar .action:hover { opacity: .8; }
     #status { font-size: 9px; color: var(--muted); padding: 6px 12px; border-bottom: 1px solid var(--border); min-height: 20px; }
     #status.working { color: var(--accent); }
     #status.completed { color: #7ed957; }
@@ -48,7 +50,10 @@
 <body>
   <div class="titlebar">
     <span class="t">DeepSeek 桌宠</span>
-    <span class="close" id="close" title="关闭">✕</span>
+    <span>
+      <span class="action" id="new" title="新对话">＋新对话</span>
+      <span class="close" id="close" title="关闭">✕</span>
+    </span>
   </div>
   <div id="status"></div>
   <div id="messages"></div>
@@ -83,6 +88,13 @@
     document.getElementById('send').addEventListener('click', send)
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send() })
     document.getElementById('close').addEventListener('click', () => window.chatAPI.close())
+    document.getElementById('new').addEventListener('click', () => {
+      messages.innerHTML = ''
+      currentAssistant = null
+      statusEl.textContent = ''
+      statusEl.className = ''
+      window.chatAPI.newConversation()
+    })
 
     // 接收流式回复与状态（chat-started / chat-delta / chat-message / chat-done）
     window.chatAPI.onEvent((msg) => {
