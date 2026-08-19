@@ -240,6 +240,11 @@ window.addEventListener('mouseup', () => {
   dragging = false
 })
 
+// 指针样式跟随命中范围：仅悬停在角色像素上显示「抓手」，拖动中显示「抓取中」
+canvas.addEventListener('mousemove', (e) => {
+  canvas.style.cursor = dragging ? 'grabbing' : (hitTest(e.clientX, e.clientY) ? 'grab' : 'default')
+})
+
 // ── 就绪 ──────────────
 latestStatus = await window.petAPI.getStatus() // 同步主进程当前状态（兜底）
 configLoaded = true
