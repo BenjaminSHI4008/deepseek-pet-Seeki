@@ -254,6 +254,22 @@ function hitTest(clientX, clientY) {
   }
 }
 
+// 双击检测：单一职责——区分「双击」与「单击」。
+// 不延迟单击（首次点击的单击动作照常即时播放），仅识别 300ms 内的第二次点击。
+class DoubleClickDetector {
+  constructor(timeout = 300) {
+    this.timeout = timeout
+    this.lastClickAt = 0
+  }
+  // 返回 true 表示本次点击是「双击中的第二次」，调用方据此抑制单击动作
+  isDoubleClick(now = performance.now()) {
+    const isDouble = now - this.lastClickAt < this.timeout
+    this.lastClickAt = now
+    return isDouble
+  }
+}
+const doubleClick = new DoubleClickDetector()
+
 canvas.addEventListener('mousedown', (e) => {
   if (!hitTest(e.clientX, e.clientY)) return // 透明区域不响应，只在角色像素上触发
   dragging = true
@@ -280,11 +296,15 @@ window.addEventListener('mousemove', (e) => {
 window.addEventListener('mouseup', () => {
   if (dragging && moved) {
     setState(CS.drag.returnTo) // 松开 → 状态末
-  } else if (dragging && !moved && downState === defaultAction && state === defaultAction) {
-    // 单击（待机时）→ 随机播放点击动作，片刻后回状态末
-    const action = pickPlay(CS.click.play)
-    setState(action)
-    returnTimer = setTimeout(() => { if (state === action) setState(CS.click.returnTo) }, CS.click.afterMs ?? 2000)
+  } else if (dragging && !moved) {
+    if (doubleClick.isDoubleClick()) {
+      window.petAPI.openChat() // 双击 → 打开聊天框
+    } else if (downState === defaultAction && state === defaultAction) {
+      // 单击（待机时）→ 随机播放点击动作，片刻后回状态末
+      const action = pickPlay(CS.click.play)
+      setState(action)
+      returnTimer = setTimeout(() => { if (state === action) setState(CS.click.returnTo) }, CS.click.afterMs ?? 2000)
+    }
   }
   dragging = false
 })

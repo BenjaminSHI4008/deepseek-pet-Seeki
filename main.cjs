@@ -3,6 +3,7 @@ const { app, BrowserWindow, Menu, screen, ipcMain, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const WebSocket = require('ws')
+const { ChatWindow } = require('./chat-window.cjs')
 
 const WIN_SIZE = 240
 
@@ -17,6 +18,9 @@ try {
 const WS_URL = process.env.PET_WS_URL ?? petConfig.server?.wsUrl ?? 'ws://127.0.0.1:3080/api/pet.ws'
 // 配置页地址：由 WS 地址推导（ws://host:port/api/pet.ws → http://host:port/pet/settings）
 const SETTINGS_URL = WS_URL.replace(/^ws/, 'http').replace(/\/api\/pet\.ws$/, '') + '/pet/settings'
+
+// 聊天窗口（双击桌宠打开）
+const chatWindow = new ChatWindow()
 
 // ── 连接 harness 状态流 ────────────────────────────────────────────────
 let mainWindow = null
@@ -34,6 +38,17 @@ function pushStatus(status) {
 
 // 渲染层就绪后主动拉取当前状态，避免错过初始推送（竞态）。
 ipcMain.handle('pet-get-status', () => latestStatus)
+
+// ── 聊天框 ───────────────────────────────────────────────────────────
+ipcMain.handle('pet-open-chat', () => {
+  const pos = mainWindow && !mainWindow.isDestroyed() ? mainWindow.getPosition() : null
+  chatWindow.show(pos)
+})
+ipcMain.on('chat-close', () => chatWindow.close())
+ipcMain.on('chat-send', (_e, text) => {
+  // P2：经 WebSocket 发给插件 → harness 发起会话；P1 仅打印占位
+  console.log('[chat] 待接入 harness：', text)
+})
 
 function connect() {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
@@ -125,4 +140,5 @@ app.on('window-all-closed', () => app.quit())
 app.on('before-quit', () => {
   if (reconnectTimer) clearTimeout(reconnectTimer)
   if (ws) ws.terminate()
+  chatWindow.close()
 })
