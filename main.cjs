@@ -98,6 +98,9 @@ ipcMain.on('pet-cancel-chat', () => {
     ws.send(JSON.stringify({ type: 'chat-cancel' }))
   }
 })
+// 打开 harness web 端查看完整会话记录
+const WEB_BASE_URL = WS_URL.replace(/^ws/, 'http').replace(/\/api\/pet\.ws$/, '')
+ipcMain.on('chat-open-web', () => shell.openExternal(WEB_BASE_URL))
 
 function connect() {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return

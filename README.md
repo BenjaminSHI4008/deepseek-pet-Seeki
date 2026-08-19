@@ -125,6 +125,19 @@ npm start
 
 也可手动操作（动作帧目录约定为 `Deepseek/animations/<目录>/south/frame_NNN.png`，`NNN` 三位零填充）。
 
+## 对话（双击聊天）
+
+双击桌宠角色即可与 DeepSeek Harness 对话：
+
+- **打开**：双击角色 → 弹像素风聊天框；首次打开会询问**工作区文件夹**（默认 `~/deepseek-pet`，可新建/自选），用于存放对话记录，选择结果记忆下来。
+- **发送**：输入文字回车发送，聊天框收起，桌宠气泡显示「Deep diving...」。
+- **完成**：气泡显示「Completed」，聊天框重新展开展示回复。
+- **打断**：运行中右键「Deep diving」气泡 →「打断会话」（与右键桌宠的「更改配置/退出」菜单隔开）。
+- **新对话**：聊天框「＋新对话」另起一个会话（持久多轮，重启可续聊）。
+- **完整记录**：聊天框底部「打开完整记录 ↗」→ 用浏览器打开 harness web 端查看完整会话。
+
+对话复用 harness 的会话/工作区能力，无需额外 API Key；协议经 `/api/pet.ws` 双向传输（内部走 `session.prompt` 的 POST 语义）。
+
 ## 目录结构
 
 ```
@@ -142,8 +155,10 @@ docs/                      # 文档
   config.md                # 配置参考
   development.md           # 开发者指南
 pet.config.json            # 控制逻辑：状态/动作/触发（v3）
-main.cjs / preload.cjs     # Electron 主进程 + 预加载（IPC 拖拽窗口 / 状态转发）
-index.html / renderer.js   # 渲染层：透明画布 + 配置驱动的状态机
+main.cjs / preload.cjs     # Electron 主进程 + 预加载（IPC 拖拽窗口 / 状态转发 / 双击开聊天）
+index.html / renderer.js   # 渲染层：透明画布 + 配置驱动的状态机 + 双击检测
+chat-window.cjs            # 聊天窗口管理（创建/显示/收起/展开/关闭）
+chat.html / chat-preload.cjs # 聊天框 UI + 桥接（发消息/新对话/打断/打开完整记录）
 scripts/
   install-harness-plugin.sh # 一键安装插件到 dsh web profile
   normalize-animations.mjs  # 素材标准化脚本（gif 拆帧 + 校验 + 报告帧数）

@@ -25,15 +25,30 @@ Electron 桌宠应用 (根目录)
 
 | 文件 | 职责 |
 |---|---|
-| `harness-plugin/src/index.ts` | 插件：状态广播、HTTP API（配置/帧上传/删除/重启/配置页）、桌宠子进程管理 |
+| `harness-plugin/src/index.ts` | 插件：状态广播、HTTP API（配置/帧上传/删除/重启/配置页）、桌宠子进程管理、`ChatService`（会话/工作区/流式回传） |
 | `harness-plugin/settings.html` | 配置页（自包含 HTML/CSS/JS），读写 `/api/pet.config` |
-| `main.cjs` | Electron 主进程（透明窗口、IPC 拖拽、连接状态流） |
-| `preload.cjs` | contextBridge 暴露 `petAPI`（dragStart/dragMove/onStatus/getStatus） |
-| `renderer.js` | 渲染层：加载配置、预加载帧、精灵状态机、鼠标交互、气泡渲染 |
+| `main.cjs` | Electron 主进程（透明窗口、IPC 拖拽、连接状态流、聊天窗口与工作区管理） |
+| `preload.cjs` | contextBridge 暴露 `petAPI`（dragStart/dragMove/onStatus/getStatus/openChat/cancelChat） |
+| `renderer.js` | 渲染层：加载配置、预加载帧、精灵状态机、鼠标交互、气泡渲染、双击检测 |
+| `chat-window.cjs` | 聊天窗口管理类（创建/显示/收起/展开/关闭/推送） |
+| `chat.html` / `chat-preload.cjs` | 聊天框 UI + 桥接（发消息/新对话/打断/打开完整记录） |
 | `pet.config.json` | 全部行为配置（见 [`docs/config.md`](config.md)） |
 | `Deepseek/` | 精灵素材（`animations/<动作>/south/frame_NNN.png`、`rotations/`、`metadata.json` 素材元数据） |
 | `scripts/install-harness-plugin.sh` | 一键安装插件到 dsh web profile |
 | `scripts/normalize-animations.mjs` | 素材标准化（GIF 拆帧 + 帧序列校验） |
+
+## 对话（聊天）链路
+
+双击桌宠 → 聊天框 → harness 对话，数据流：
+
+1. `renderer.js` 双击检测（`DoubleClickDetector` 类）→ `petAPI.openChat()`；
+2. `main.cjs` 弹工作区选择（首次）→ 打开 `chat-window.cjs` 聊天窗；
+3. `chat.html` 发送 → IPC `chat-send` → `main.cjs` 经 `/api/pet.ws` 发 `{type:'chat', text, workspacePath}`；
+4. 插件 `ChatService.send()`：`workspace.create` → `session.create` → `session.prompt`（RPC 返回信封 `{result:{ok,value}}`，需解包 `result.value`）；
+5. 插件从 `events.mux` 提取 `assistant/chunk`(text-delta)/`assistant/message`/`turn/end`，经 WS 回传 `chat-delta/message/done`；
+6. `main.cjs` 转发给聊天窗；`chat-done` 时展开聊天框展示输出。
+
+打断：运行中气泡右键 → `session.cancel`。新对话：`chat-new` → 重置会话 id。
 
 ## 渲染层数据流
 

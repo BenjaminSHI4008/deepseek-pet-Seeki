@@ -22,13 +22,16 @@
     .titlebar {
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 12px; background: var(--panel); border-bottom: 2px solid var(--border);
-      user-select: none;
+      user-select: none; -webkit-app-region: drag;
     }
     .titlebar .t { font-size: 11px; }
-    .titlebar .close { cursor: pointer; color: var(--muted); font-size: 14px; padding: 0 4px; }
+    .titlebar .close { cursor: pointer; color: var(--muted); font-size: 14px; padding: 0 4px; -webkit-app-region: no-drag; }
     .titlebar .close:hover { color: #ff5252; }
-    .titlebar .action { cursor: pointer; color: var(--accent); font-size: 9px; margin-right: 12px; }
+    .titlebar .action { cursor: pointer; color: var(--accent); font-size: 9px; margin-right: 12px; -webkit-app-region: no-drag; }
     .titlebar .action:hover { opacity: .8; }
+    .footer { padding: 9px 12px; border-top: 1px solid var(--border); background: var(--panel); text-align: center; }
+    .footer .link { cursor: pointer; color: var(--accent); font-size: 9px; }
+    .footer .link:hover { text-decoration: underline; }
     #status { font-size: 9px; color: var(--muted); padding: 6px 12px; border-bottom: 1px solid var(--border); min-height: 20px; }
     #status.working { color: var(--accent); }
     #status.completed { color: #7ed957; }
@@ -61,6 +64,9 @@
     <input id="input" type="text" placeholder="和 DeepSeek 说点什么…" />
     <button id="send">发送</button>
   </div>
+  <div class="footer">
+    <span class="link" id="open-web">打开完整记录 ↗</span>
+  </div>
 
   <script>
     const messages = document.getElementById('messages')
@@ -88,6 +94,7 @@
     document.getElementById('send').addEventListener('click', send)
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send() })
     document.getElementById('close').addEventListener('click', () => window.chatAPI.close())
+    document.getElementById('open-web').addEventListener('click', () => window.chatAPI.openWeb())
     document.getElementById('new').addEventListener('click', () => {
       messages.innerHTML = ''
       currentAssistant = null
