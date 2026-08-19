@@ -14,8 +14,9 @@
     }
     html, body { margin: 0; height: 100%; }
     body {
+      position: relative;
       display: flex; flex-direction: column;
-      padding: 0 0 14px; /* 底部留尖角空间 */
+      padding: 0 0 16px; /* 底部留尖角空间 */
       background: transparent; color: var(--text);
       font: 11px/1.6 'Press Start 2P', monospace;
       overflow: visible;
@@ -33,13 +34,14 @@
       background: var(--bg); border: 3px solid var(--border); border-radius: 14px;
       overflow: hidden;
     }
-    /* 指向桌宠的尖角（朝下三角形） */
+    /* 尖角：与气泡融为一体的朝下尖角（微信/漫画对话框式，非独立尾巴） */
     .tail {
-      position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
-      width: 0; height: 0;
-      border-left: 10px solid transparent;
-      border-right: 10px solid transparent;
-      border-top: 13px solid var(--border);
+      position: absolute; left: 50%; bottom: 8px;
+      width: 15px; height: 15px;
+      background: var(--bg);
+      border-right: 3px solid var(--border);
+      border-bottom: 3px solid var(--border);
+      transform: translateX(-50%) rotate(45deg);
     }
     .titlebar {
       display: flex; align-items: center; justify-content: space-between;
