@@ -20,7 +20,7 @@
       #pet {
         display: block; width: 240px; height: 240px;
         image-rendering: pixelated;
-        cursor: default; /* 由 main.js 按角色命中范围动态切换 grab/grabbing */
+        cursor: default; /* 由 renderer.js 按角色命中范围动态切换 grab/grabbing */
       }
       /* 头顶状态文字（无框像素块，统一英文像素字） */
       #bubble {
@@ -44,6 +44,6 @@
   <body>
     <canvas id="pet" width="240" height="240"></canvas>
     <div id="bubble"></div>
-    <script type="module" src="./main.js"></script>
+    <script type="module" src="./renderer.js"></script>
   </body>
 </html>

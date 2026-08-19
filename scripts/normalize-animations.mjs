@@ -1,11 +1,11 @@
 // 动作素材标准化脚本：统一 animations/<名字>/south/frame_NNN.png 的格式。
-// 用法：node normalize-animations.mjs [素材根目录]
+// 用法（在仓库根目录执行）：node scripts/normalize-animations.mjs [素材根目录]
 // 依赖：sharp（`npm i sharp` 后运行）。缺少 sharp 时仍会做校验与报告，只是跳过 GIF 拆帧。
 import { readdir, readFile, stat, mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 
-const ROOT = process.argv[2] || '/Users/benjamin/Desktop/A_cute_chibi_pixel_art-Deepseek'
+const ROOT = process.argv[2] || '.'
 const DIR = 'south' // 方向（与 pet.config.json 的 direction 一致）
 const animDir = path.join(ROOT, 'Deepseek', 'animations')
 

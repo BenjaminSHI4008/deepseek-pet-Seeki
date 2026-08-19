@@ -131,16 +131,28 @@ npm start
 harness-plugin/            # dsh-pet-status 插件（Cordis）
   src/index.ts             # 状态广播 + 桌宠管理器 + HTTP API
   settings.html            # 配置管理页（自包含）
-  package.json
+  package.json / README.md
 Deepseek/                  # 精灵素材（PixelLab 生成）
-  rotations/               # 8 方向立绘
   animations/              # 动作帧序列（<目录>/south/frame_NNN.png）
+  rotations/               # 8 方向立绘
+  raw/                     # 原始素材源（GIF 等）
+  metadata.json            # 素材元数据（PixelLab 导出清单）
+assets/fonts/              # 本地打包字体
+docs/                      # 文档
+  config.md                # 配置参考
+  development.md           # 开发者指南
 pet.config.json            # 控制逻辑：状态/动作/触发（v3）
-normalize-animations.mjs   # 素材标准化脚本（gif 拆帧 + 校验 + 报告帧数）
 main.cjs / preload.cjs     # Electron 主进程 + 预加载（IPC 拖拽窗口 / 状态转发）
-index.html / main.js       # 渲染层：透明画布 + 配置驱动的状态机
-scripts/install-harness-plugin.sh  # 一键安装插件到 dsh web profile
+index.html / renderer.js   # 渲染层：透明画布 + 配置驱动的状态机
+scripts/
+  install-harness-plugin.sh # 一键安装插件到 dsh web profile
+  normalize-animations.mjs  # 素材标准化脚本（gif 拆帧 + 校验 + 报告帧数）
 ```
+
+## 文档
+
+- [配置参考](docs/config.md) — `pet.config.json` 的完整字段说明与示例；
+- [开发者指南](docs/development.md) — 架构、文件职责，以及添加动作 / 鼠标状态 / 拖拽方向的方法。
 
 ## 素材声明
 
