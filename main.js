@@ -152,8 +152,12 @@ let bubbleTimer = null
 let stateMachineReady = false
 let pendingAction = null
 
-function triggerStatusAction(action) {
-  if (!stateMachineReady) { pendingAction = action; return }
+function triggerStatusAction(actions) {
+  const picked = pickPlay(actions) // 多个动作随机选一个
+  if (!stateMachineReady) { pendingAction = picked; return }
+  playAction(picked)
+}
+function playAction(action) {
   setState(action)
   statusActionTimer = setTimeout(() => { if (state === action) setState(defaultAction) }, STATUS_ACTION_MS)
 }
@@ -178,7 +182,7 @@ function renderStatus() {
       bubble.style.color = s.color
       bubble.className = 'show'
       bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
-      if (s.action) triggerStatusAction(s.action) // 如 completed → happy
+      if (Array.isArray(s.actions) && s.actions.length > 0) triggerStatusAction(s.actions) // 如 completed → [happy, ...] 随机
     } else {
       bubble.className = ''
     }
@@ -254,6 +258,6 @@ setState(defaultAction)
 if (pendingAction) {
   const a = pendingAction
   pendingAction = null
-  triggerStatusAction(a) // 启动时就已完成的任务：补一次开心
+  playAction(a) // 启动时就已完成的任务：补一次随机动作
 }
 requestAnimationFrame(tick)

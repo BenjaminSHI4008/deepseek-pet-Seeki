@@ -9,22 +9,24 @@
     "running": {
       "text": "Deep diving...",
       "color": "#4fc3f7",
-      "action": null
+      "actions": []
     },
     "completed": {
       "text": "Completed",
       "color": "#7ed957",
-      "action": "happy"
+      "actions": [
+        "happy"
+      ]
     },
     "terminated": {
       "text": "Stopped",
       "color": "#ff5252",
-      "action": null
+      "actions": []
     },
     "offline": {
       "text": "Offline",
       "color": "#9e9e9e",
-      "action": null
+      "actions": []
     }
   },
   "actions": {

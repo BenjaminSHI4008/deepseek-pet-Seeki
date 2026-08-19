@@ -209,11 +209,11 @@
     <section class="card">
       <div class="card-head">
         <span class="card-icon c-blue">💬</span>
-        <div><h2>任务状态</h2><p class="card-desc">头顶气泡的文字与颜色；任务完成后可触发一个角色动作</p></div>
+        <div><h2>任务状态</h2><p class="card-desc">头顶气泡的文字与颜色；完成后可触发一个或多个角色动作（随机播放）</p></div>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th style="width:140px">任务状态</th><th>气泡文字</th><th style="width:120px">颜色</th><th style="width:160px">完成后触发角色动作</th></tr></thead>
+          <thead><tr><th style="width:140px">任务状态</th><th>气泡文字</th><th style="width:120px">颜色</th><th style="width:170px">完成后触发角色动作（多个 = 随机）</th></tr></thead>
           <tbody id="statuses-body"></tbody>
         </table>
       </div>
@@ -329,6 +329,11 @@
       for (const k of ['default', 'click', 'drag']) {
         if (!Array.isArray(cs[k].play)) cs[k].play = [cs[k].play].filter(Boolean)
       }
+      // 任务状态动作：旧 action（单个）→ actions（数组，多个=随机）
+      for (const s of Object.values(config.statuses || {})) {
+        if (!Array.isArray(s.actions)) s.actions = s.action ? [s.action] : []
+        delete s.action
+      }
     }
 
     // 动作下拉选项（显示中文标签，缺标签时退回动作名）
@@ -342,15 +347,18 @@
       const a = config.actions[id]
       return a ? (a.label || id) : id
     }
-    function renderChips(containerId, actions) {
-      document.getElementById(containerId).innerHTML = (actions || []).map(a =>
+    function chipsHtml(actions) {
+      return (actions || []).map(a =>
         `<span class="chip" data-chip="${a}">${escapeHtml(actionLabel(a))}<span class="x" data-rm="${a}">×</span></span>`
       ).join('')
+    }
+    function renderChips(containerId, actions) {
+      document.getElementById(containerId).innerHTML = chipsHtml(actions)
     }
 
     function render() {
       // 状态表
-      const actionOptions = ['<option value="">(无)</option>', ...Object.keys(config.actions).map(a => `<option value="${a}">${a}</option>`)].join('')
+      const statusActionOptions = Object.keys(config.actions).map(a => `<option value="${a}">${escapeHtml(actionLabel(a))}</option>`).join('')
       const sb = document.getElementById('statuses-body')
       sb.innerHTML = Object.entries(config.statuses).map(([id, s]) => `
         <tr>
@@ -360,7 +368,13 @@
             <span class="swatch" style="background:${s.color}"></span>
             <input type="color" data-status="${id}" data-field="color" value="${s.color}" />
           </div></td>
-          <td><select data-status="${id}" data-field="action">${actionOptions.replace(`value="${s.action ?? ''}"`, `value="${s.action ?? ''}" selected`)}</select></td>
+          <td>
+            <div class="chips status-chips" data-status-chips="${id}">${chipsHtml(s.actions)}</div>
+            <div class="chip-add">
+              <select data-status-add="${id}">${statusActionOptions}</select>
+              <button class="btn-mini add" data-status-addbtn="${id}">＋</button>
+            </div>
+          </td>
         </tr>`).join('')
       // 动作表
       const ab = document.getElementById('actions-body')
@@ -435,6 +449,31 @@
       })
     }
 
+    // 任务状态动作随机池：chip 删除 / 添加动作（事件委托）
+    document.getElementById('statuses-body').addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-rm]')
+      const container = e.target.closest('[data-status-chips]')
+      if (rm && container) {
+        const sid = container.dataset.statusChips
+        const s = config.statuses[sid]
+        if (!Array.isArray(s.actions)) s.actions = []
+        s.actions = s.actions.filter((a) => a !== rm.dataset.rm)
+        container.innerHTML = chipsHtml(s.actions)
+        return
+      }
+      const addBtn = e.target.closest('[data-status-addbtn]')
+      if (addBtn) {
+        const sid = addBtn.dataset.statusAddbtn
+        const select = document.querySelector(`[data-status-add="${sid}"]`)
+        const v = select && select.value
+        if (!v) return
+        const s = config.statuses[sid]
+        if (!Array.isArray(s.actions)) s.actions = []
+        if (!s.actions.includes(v)) s.actions.push(v)
+        document.querySelector(`[data-status-chips="${sid}"]`).innerHTML = chipsHtml(s.actions)
+      }
+    })
+
     async function readFileBase64(file) {
       return new Promise((resolve, reject) => {
         const r = new FileReader()
@@ -508,7 +547,7 @@
       const cs = config.characterStates || {}
       if ((cs.default?.play || []).includes(action)) refs.push('默认')
       for (const [sid, s] of Object.entries(config.statuses)) {
-        if (s.action === action) refs.push(`任务状态「${STATUS_MEANING[sid] ?? sid}」`)
+        if ((s.actions || []).includes(action)) refs.push(`任务状态「${STATUS_MEANING[sid] ?? sid}」`)
       }
       if ((cs.click?.play || []).includes(action) || cs.click?.returnTo === action) refs.push('点击')
       if ((cs.drag?.play || []).includes(action) || cs.drag?.returnTo === action) refs.push('拖动')
@@ -538,13 +577,17 @@
     })
 
     document.getElementById('save').addEventListener('click', async () => {
-      // 收集状态编辑
+      // 收集状态编辑（文字/颜色）
       for (const el of document.querySelectorAll('[data-status]')) {
         const s = config.statuses[el.dataset.status]
         const v = el.value
         if (el.dataset.field === 'text') s.text = v
         else if (el.dataset.field === 'color') s.color = v
-        else if (el.dataset.field === 'action') s.action = v || null
+      }
+      // 收集状态的动作随机池
+      for (const el of document.querySelectorAll('[data-status-chips]')) {
+        const sid = el.dataset.statusChips
+        config.statuses[sid].actions = [...el.querySelectorAll('.chip')].map((c) => c.dataset.chip)
       }
       // 收集动作编辑
       for (const el of document.querySelectorAll('[data-action]')) {

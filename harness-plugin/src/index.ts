@@ -369,9 +369,11 @@ export function apply(ctx: Context, config: Config = {}): void {
             if (cs.timeout.before === action) cs.timeout.before = fallback
             if (cs.timeout.after === action) cs.timeout.after = fallback
           }
-          const statuses = (cfg.statuses ?? {}) as Record<string, { action?: string | null }>
+          const statuses = (cfg.statuses ?? {}) as Record<string, { actions?: unknown[] }>
           for (const s of Object.values(statuses)) {
-            if (s.action === action) s.action = null
+            if (Array.isArray(s.actions)) {
+              s.actions = s.actions.filter((a) => a !== action)
+            }
           }
 
           // 删动作条目 + 帧目录（目录名不安全时跳过文件删除，仅删配置）

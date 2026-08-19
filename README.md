@@ -40,7 +40,7 @@
 | `walk` | 拖动 | `Crouched_Walking` |
 | `sleep` | 睡觉 | `Close_eyes_and_sleeping` |
 
-任务状态可以「触发」一个角色动作（如 `completed → happy`）。
+任务状态可以「触发」一个或多个角色动作（如 `completed → [happy, spin]`，多个时随机播放）。
 
 **③ 角色状态 Character States**（以「鼠标状态」为底层，决定何时播哪个动作）：
 
@@ -93,7 +93,7 @@ npm start
 
 右键桌宠 →「⚙️ 更改配置」，或直接访问 `http://127.0.0.1:3080/pet/settings`。页面分四个板块：
 
-- **任务状态**：气泡文字、颜色、完成后触发哪个角色动作；
+- **任务状态**：气泡文字、颜色、完成后触发一个或多个角色动作（随机播放）；
 - **角色状态**：以鼠标状态为底层（默认 / 点击 / 拖动 / 超时），「状态开始」可挂多个动作（随机播放）、「状态末」选返回动作、可调时长；
 - **角色动作**：标签、帧目录、帧数、帧率，以及**删除动作**；
 - **动作帧管理**：帧缩略图预览、上传替换帧、添加新动作、重启桌宠。
@@ -135,7 +135,7 @@ harness-plugin/            # dsh-pet-status 插件（Cordis）
 Deepseek/                  # 精灵素材（PixelLab 生成）
   rotations/               # 8 方向立绘
   animations/              # 动作帧序列（<目录>/south/frame_NNN.png）
-pet.config.json            # 控制逻辑：状态/动作/触发（v2）
+pet.config.json            # 控制逻辑：状态/动作/触发（v3）
 normalize-animations.mjs   # 素材标准化脚本（gif 拆帧 + 校验 + 报告帧数）
 main.cjs / preload.cjs     # Electron 主进程 + 预加载（IPC 拖拽窗口 / 状态转发）
 index.html / main.js       # 渲染层：透明画布 + 配置驱动的状态机
