@@ -5,76 +5,225 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>桌宠配置</title>
   <style>
-    :root { --bg: #141419; --card: #1d1d24; --border: #2e2e38; --text: #e8e8ee; --muted: #9a9aa6; --accent: #4fc3f7; --danger: #ff5252; }
+    :root {
+      --blue-600: #2563eb;
+      --blue-500: #3b82f6;
+      --sky-400: #38bdf8;
+      --ink-900: #0f172a;
+      --ink-700: #334155;
+      --ink-500: #64748b;
+      --ink-400: #94a3b8;
+      --line: rgba(100, 116, 139, .16);
+      --card: #ffffff;
+      --primary: #3b82f6;
+      --primary-strong: #2563eb;
+      --primary-soft: #eaf2ff;
+      --danger: #ef4444;
+      --danger-soft: #fee2e2;
+      --success: #16a34a;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 9px;
+      --shadow-xs: 0 1px 2px rgba(15, 23, 42, .04);
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 20px rgba(15, 23, 42, .06);
+      --shadow-md: 0 2px 4px rgba(15, 23, 42, .05), 0 16px 40px rgba(15, 23, 42, .08);
+      --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.6 -apple-system, "PingFang SC", "Segoe UI", sans-serif; }
-    .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
-    h1 { font-size: 22px; margin: 0 0 4px; }
-    .sub { color: var(--muted); margin: 0 0 24px; font-size: 13px; }
-    section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-    h2 { font-size: 16px; margin: 0 0 16px; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      color: var(--ink-900);
+      font: 14px/1.65 var(--font);
+      min-height: 100vh;
+      background:
+        radial-gradient(1000px 520px at 88% -8%, rgba(56, 189, 248, .16), transparent 60%),
+        radial-gradient(820px 480px at -6% 18%, rgba(96, 165, 250, .14), transparent 58%),
+        radial-gradient(720px 460px at 50% 112%, rgba(251, 211, 141, .12), transparent 55%),
+        linear-gradient(180deg, #f3f8ff 0%, #fdfbf7 46%, #f1f6ff 100%);
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 96px;
+    }
+    /* 氛围层：极淡光斑，仅作背景 */
+    .bg-decor { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; }
+    .blob-1 { width: 460px; height: 460px; top: -140px; right: -100px; background: radial-gradient(circle, rgba(191, 219, 254, .55), transparent 66%); animation: drift 20s ease-in-out infinite alternate; }
+    .blob-2 { width: 400px; height: 400px; bottom: -140px; left: -110px; background: radial-gradient(circle, rgba(253, 230, 138, .4), transparent 66%); animation: drift 26s ease-in-out infinite alternate-reverse; }
+    @keyframes drift { from { transform: translate(0, 0); } to { transform: translate(34px, -22px); } }
+
+    .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 40px 22px 32px; }
+
+    /* ── 头部 Hero ── */
+    .hero { display: flex; align-items: center; gap: 24px; padding: 8px 4px 32px; }
+    .hero-avatar {
+      position: relative; width: 96px; height: 96px; flex: none; border-radius: 50%;
+      background: radial-gradient(120% 120% at 30% 18%, #dbeafe, #eef6ff 58%, #fef9c3 130%);
+      box-shadow: 0 14px 34px rgba(59, 130, 246, .22), inset 0 0 0 1px rgba(255, 255, 255, .75);
+      display: grid; place-items: center;
+      animation: floaty 5.5s ease-in-out infinite;
+    }
+    .hero-avatar::after {
+      content: ''; position: absolute; inset: -8px; border-radius: 50%;
+      box-shadow: 0 0 0 6px rgba(59, 130, 246, .06), 0 0 32px rgba(59, 130, 246, .12);
+    }
+    .hero-avatar img { width: 76px; height: 76px; image-rendering: pixelated; object-fit: contain; }
+    .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; color: var(--blue-600); text-transform: uppercase; }
+    .hero h1 { font-size: 28px; font-weight: 700; letter-spacing: .5px; margin: 4px 0 6px; }
+    .hero .sub { font-size: 14px; color: var(--ink-500); margin: 0 0 14px; }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag { font-size: 12px; color: var(--ink-500); background: rgba(255, 255, 255, .78); border: 1px solid var(--line); padding: 4px 12px; border-radius: 999px; }
+    @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+    /* ── 卡片 ── */
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 22px 24px; margin-bottom: 18px; }
+    .card-head { display: flex; align-items: center; gap: 13px; margin-bottom: 18px; }
+    .card-icon { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; font-size: 19px; }
+    .card-icon.c-blue { background: #eaf2ff; }
+    .card-icon.c-sky { background: #e0f5ff; }
+    .card-icon.c-amber { background: #fff4d6; }
+    .card-icon.c-green { background: #e6f7ef; }
+    .card-head h2 { font-size: 16px; font-weight: 700; margin: 0; }
+    .card-head .card-desc { font-size: 12.5px; color: var(--ink-500); margin: 2px 0 0; }
+
+    /* ── 表格 ── */
+    .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-    th { color: var(--muted); font-weight: 600; font-size: 12px; }
-    .dim { color: var(--muted); font-size: 11px; margin-top: 2px; }
-    tr:last-child td { border-bottom: none; }
-    input[type=text], input[type=number] {
-      width: 100%; padding: 6px 8px; background: #121218; border: 1px solid var(--border);
-      border-radius: 6px; color: var(--text); font: inherit;
+    th { text-align: left; font-size: 12px; font-weight: 600; color: var(--ink-400); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    td { padding: 10px; border-bottom: 1px solid rgba(100, 116, 139, .08); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background .15s; }
+    tbody tr:hover { background: rgba(59, 130, 246, .035); }
+    code {
+      display: inline-block; font-family: inherit; font-size: 12px; font-weight: 600;
+      color: var(--blue-600); background: var(--primary-soft);
+      padding: 3px 10px; border-radius: 7px;
     }
-    input[type=color] { width: 40px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: #121218; }
-    select { width: 100%; padding: 6px 8px; background: #121218; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; }
-    input[type=file] { color: var(--muted); font: inherit; }
-    .color-cell { display: flex; align-items: center; gap: 8px; }
-    .swatch { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--border); flex: none; }
-    .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .dim { font-size: 11px; color: var(--ink-400); margin-top: 3px; }
+
+    /* ── 表单组件 ── */
+    input[type=text], input[type=number], select {
+      width: 100%; padding: 8px 11px; background: #fff;
+      border: 1px solid var(--line); border-radius: var(--radius-sm);
+      color: var(--ink-900); font: inherit;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input[type=text]:focus, input[type=number]:focus, select:focus {
+      outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, .14);
+    }
+    input[type=color] { width: 44px; height: 34px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: #fff; cursor: pointer; }
+    input[type=file] { color: var(--ink-500); font: inherit; width: 100%; }
+    input[type=file]::file-selector-button {
+      background: var(--primary-soft); color: var(--blue-600); border: none; border-radius: 7px;
+      padding: 6px 12px; margin-right: 10px; font: 600 12px inherit; cursor: pointer; transition: background .15s;
+    }
+    input[type=file]::file-selector-button:hover { background: #dbeafe; }
+
+    /* ── 按钮 ── */
     .btn {
-      background: var(--accent); color: #04141d; border: none; border-radius: 8px;
-      padding: 10px 20px; font: 600 14px inherit; cursor: pointer;
+      background: var(--primary); color: #fff; border: none; border-radius: var(--radius-sm);
+      padding: 10px 22px; font: 600 14px inherit; cursor: pointer;
+      box-shadow: 0 6px 16px rgba(59, 130, 246, .24);
+      transition: transform .12s, box-shadow .15s, background .15s;
     }
-    .btn:hover { opacity: .9; }
-    .btn.danger { background: var(--danger); color: #fff; }
-    .btn-mini { background: var(--danger); color: #fff; border: none; border-radius: 6px; padding: 4px 10px; font: 600 12px inherit; cursor: pointer; }
-    .btn-mini:hover { opacity: .85; }
-    #status-msg, #restart-msg { margin-left: 12px; font-size: 13px; color: var(--muted); }
-    #status-msg.ok, #restart-msg.ok { color: #7ed957; }
-    #status-msg.err, #restart-msg.err { color: #ff5252; }
-    .frames-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-    .frames-grid img { width: 64px; height: 64px; image-rendering: pixelated; background: #0c0c10; border: 1px solid var(--border); border-radius: 6px; }
-    .frames-grid .empty { color: var(--muted); padding: 20px 0; }
-    .frame-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 12px 0; padding-top: 12px; border-top: 1px dashed var(--border); }
-    .frame-row .field { flex: 1 1 160px; min-width: 120px; }
-    .frame-row label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-    .frame-row .field-file { flex: 1 1 260px; }
-    .cs-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 12px 0; }
-    .cs-row .field { flex: 1 1 180px; min-width: 130px; }
-    .cs-row label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-    .cs-hint { color: var(--muted); font-size: 12px; margin: -8px 0 4px; }
-    .cs-row .field.grow { flex: 1 1 340px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 34px; padding: 6px; background: #121218; border: 1px solid var(--border); border-radius: 6px; }
-    .chip { display: inline-flex; align-items: center; gap: 6px; background: #2a2a35; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; font-size: 13px; }
-    .chip .x { cursor: pointer; color: var(--danger); font-weight: 700; }
-    .chip-add { display: flex; gap: 6px; margin-top: 6px; }
+    .btn:hover { background: var(--primary-strong); box-shadow: 0 8px 20px rgba(59, 130, 246, .3); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn.danger { background: #fff; color: var(--danger); border: 1px solid #fecaca; box-shadow: none; }
+    .btn.danger:hover { background: #fef2f2; }
+    .btn-mini { background: var(--danger-soft); color: #b91c1c; border: none; border-radius: 8px; padding: 5px 12px; font: 600 12px inherit; cursor: pointer; transition: background .15s; }
+    .btn-mini:hover { background: #fecaca; }
+    .btn-mini.add { background: var(--primary-soft); color: var(--blue-600); }
+    .btn-mini.add:hover { background: #dbeafe; }
+
+    /* ── 提示消息 ── */
+    #status-msg, #restart-msg { font-size: 13px; color: var(--ink-500); margin: 0; }
+    #status-msg.ok, #restart-msg.ok { color: var(--success); }
+    #status-msg.err, #restart-msg.err { color: var(--danger); }
+
+    /* ── 颜色选择 ── */
+    .color-cell { display: flex; align-items: center; gap: 10px; }
+    .swatch { width: 22px; height: 22px; border-radius: 7px; border: 1px solid var(--line); flex: none; box-shadow: var(--shadow-xs); }
+
+    /* ── 角色状态 chips ── */
+    .cs-hint { color: var(--ink-400); font-size: 12.5px; margin: -6px 0 8px; }
+    .cs-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin: 14px 0; }
+    .cs-row .field { flex: 1 1 190px; min-width: 140px; }
+    .cs-row .field.grow { flex: 1 1 360px; }
+    .cs-row label { display: block; color: var(--ink-500); font-size: 12px; font-weight: 500; margin-bottom: 6px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; min-height: 38px; padding: 7px; background: #f8fafc; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+    .chip { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; box-shadow: var(--shadow-xs); }
+    .chip .x { cursor: pointer; color: var(--ink-400); font-weight: 700; border-radius: 50%; width: 16px; height: 16px; display: grid; place-items: center; transition: color .15s, background .15s; }
+    .chip .x:hover { color: var(--danger); background: var(--danger-soft); }
+    .chip-add { display: flex; gap: 8px; margin-top: 8px; }
     .chip-add select { flex: 1; }
-    .btn-mini.add { background: var(--accent); color: #04141d; }
+
+    /* ── 帧管理 ── */
+    .frame-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin: 14px 0; padding-top: 14px; border-top: 1px dashed var(--line); }
+    .frame-row:first-of-type { padding-top: 0; border-top: none; }
+    .frame-row .field { flex: 1 1 170px; min-width: 130px; }
+    .frame-row .field-file { flex: 1 1 280px; }
+    .frame-row label { display: block; color: var(--ink-500); font-size: 12px; font-weight: 500; margin-bottom: 6px; }
+    .frames-grid { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+    .frames-grid img { width: 72px; height: 72px; image-rendering: pixelated; background: #f1f5f9; border: 1px solid var(--line); border-radius: 12px; padding: 6px; object-fit: contain; transition: transform .15s, box-shadow .15s; }
+    .frames-grid img:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+    .frames-grid .empty { color: var(--ink-400); padding: 24px 0; }
+    .bar { display: flex; align-items: center; gap: 12px; }
+
+    /* ── 底部保存栏 ── */
+    .save-bar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+      background: rgba(255, 255, 255, .94);
+      border-top: 1px solid var(--line);
+      box-shadow: 0 -8px 30px rgba(15, 23, 42, .06);
+      padding: 12px 22px;
+    }
+    .save-bar-inner { max-width: 900px; margin: 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
+    .save-hint { font-size: 12px; color: var(--ink-400); margin-right: auto; }
+
+    @media (max-width: 560px) {
+      .hero { flex-direction: column; text-align: center; }
+      .hero-tags { justify-content: center; }
+      .save-hint { display: none; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>桌宠配置</h1>
-    <p class="sub">任务状态决定头顶气泡文字与颜色；角色状态以「鼠标状态」为底层（默认 / 点击 / 拖动 / 超时），每个状态挂一个或多个角色动作（多个 = 随机）；角色动作是精灵动画帧序列。改完点「保存」即时生效；帧变动需「重启桌宠」加载。</p>
+  <div class="bg-decor" aria-hidden="true">
+    <span class="blob blob-1"></span>
+    <span class="blob blob-2"></span>
+  </div>
 
-    <section>
-      <h2>任务状态 Task Statuses</h2>
-      <table>
-        <thead><tr><th style="width:140px">任务状态</th><th>气泡文字</th><th style="width:120px">颜色</th><th style="width:160px">完成后触发角色动作</th></tr></thead>
-        <tbody id="statuses-body"></tbody>
-      </table>
+  <div class="wrap">
+    <header class="hero">
+      <div class="hero-avatar"><img id="pet-avatar" alt="桌宠预览" onerror="this.style.display='none'" /></div>
+      <div class="hero-text">
+        <span class="eyebrow">DeepSeek Pet</span>
+        <h1>桌宠配置</h1>
+        <p class="sub">为你的 AI 桌面小伙伴，定制外观、动作与状态。</p>
+        <div class="hero-tags">
+          <span class="tag">✨ 透明置顶</span>
+          <span class="tag">🎨 2D 像素精灵</span>
+          <span class="tag">💬 状态联动</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="card-head">
+        <span class="card-icon c-blue">💬</span>
+        <div><h2>任务状态</h2><p class="card-desc">头顶气泡的文字与颜色；任务完成后可触发一个角色动作</p></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:140px">任务状态</th><th>气泡文字</th><th style="width:120px">颜色</th><th style="width:160px">完成后触发角色动作</th></tr></thead>
+          <tbody id="statuses-body"></tbody>
+        </table>
+      </div>
     </section>
 
-    <section>
-      <h2>角色状态 Character State</h2>
-      <p class="cs-hint">以「鼠标状态」为底层：每个状态挂一个或多个角色动作，「状态开始」多个则随机播放。</p>
+    <section class="card">
+      <div class="card-head">
+        <span class="card-icon c-sky">🖱️</span>
+        <div><h2>角色状态</h2><p class="card-desc">以「鼠标状态」为底层，状态开始可挂多个动作随机播放</p></div>
+      </div>
 
       <div class="cs-row">
         <div class="field"><label>默认 default · 常驻动作</label><select id="cs-default"></select></div>
@@ -104,16 +253,24 @@
       </div>
     </section>
 
-    <section>
-      <h2>角色动作 Character Actions</h2>
-      <table>
-        <thead><tr><th style="width:110px">角色动作</th><th>标签</th><th>帧目录</th><th style="width:90px">帧长 count</th><th style="width:90px">帧率 fps</th><th style="width:70px">操作</th></tr></thead>
-        <tbody id="actions-body"></tbody>
-      </table>
+    <section class="card">
+      <div class="card-head">
+        <span class="card-icon c-amber">🎞️</span>
+        <div><h2>角色动作</h2><p class="card-desc">桌宠的动画帧序列；可直接改标签、帧目录、帧数与帧率</p></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:110px">角色动作</th><th>标签</th><th>帧目录</th><th style="width:90px">帧长 count</th><th style="width:90px">帧率 fps</th><th style="width:70px">操作</th></tr></thead>
+          <tbody id="actions-body"></tbody>
+        </table>
+      </div>
     </section>
 
-    <section>
-      <h2>动作帧管理 Frames</h2>
+    <section class="card">
+      <div class="card-head">
+        <span class="card-icon c-green">🖼️</span>
+        <div><h2>动作帧管理</h2><p class="card-desc">上传 / 替换 / 新增动作的帧序列，帧变动需「重启桌宠」加载</p></div>
+      </div>
       <div class="frame-row">
         <div class="field"><label>查看动作</label><select id="frame-action"></select></div>
         <div class="field field-file"><label>替换帧（PNG 可多选，顺序即播放顺序）</label><input type="file" id="replace-files" accept="image/png" multiple /></div>
@@ -133,12 +290,15 @@
         <span id="restart-msg"></span>
       </div>
     </section>
-
-    <div class="bar">
-      <button class="btn" id="save">保存配置</button>
-      <span id="status-msg"></span>
-    </div>
   </div>
+
+  <footer class="save-bar">
+    <div class="save-bar-inner">
+      <span class="save-hint">改动保存后，重启桌宠即生效</span>
+      <span id="status-msg"></span>
+      <button class="btn" id="save">保存配置</button>
+    </div>
+  </footer>
 
   <script>
     let config = null
@@ -232,6 +392,13 @@
       fa.innerHTML = Object.keys(config.actions).map(a => `<option value="${a}">${a}</option>`).join('')
       if (Object.keys(config.actions).includes(prev)) fa.value = prev
       renderFrames(fa.value)
+      // 头部桌宠预览（默认待机动作第一帧）
+      const avatar = document.getElementById('pet-avatar')
+      if (avatar) {
+        const def = config.characterStates.default.play[0]
+        const folder = (config.actions[def] || {}).folder || def
+        avatar.src = `/pet/frames/${folder}/frame_000.png?${frameBust}`
+      }
     }
 
     function renderFrames(actionId) {
