@@ -1,9 +1,9 @@
-// 聊天窗口 preload：向聊天框渲染层暴露 chatAPI（发送 / 关闭 / 接收流式回复与状态）
+// 聊天窗口 preload：向聊天框渲染层暴露 chatAPI（发送 / 打断 / 关闭 / 接收流式回复）
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('chatAPI', {
   send: (text) => ipcRenderer.send('chat-send', text),
+  cancel: () => ipcRenderer.send('chat-cancel'),
   close: () => ipcRenderer.send('chat-close'),
-  onMessage: (callback) => ipcRenderer.on('chat-message', (_event, msg) => callback(msg)),
-  onStatus: (callback) => ipcRenderer.on('chat-status', (_event, status) => callback(status)),
+  onEvent: (callback) => ipcRenderer.on('chat-event', (_event, msg) => callback(msg)),
 })

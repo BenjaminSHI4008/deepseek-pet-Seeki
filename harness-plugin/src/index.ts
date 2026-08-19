@@ -79,6 +79,67 @@ function json(res: ServerResponse, code: number, value: unknown): void {
   res.end(JSON.stringify(value))
 }
 
+/** 从 assistant 消息里折叠出纯文本（过滤 tool 等非文本块）。 */
+function extractText(message: unknown): string {
+  const content = (message as { content?: Array<{ type?: string; text?: string }> } | undefined)?.content ?? []
+  return content
+    .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text as string)
+    .join('')
+}
+
+/**
+ * 聊天服务：单一职责——管理 harness 会话（创建/发消息/取消），并把 assistant 文本流式回传。
+ * 依赖注入：api（ApiProxy）与 emit（向桌宠广播 JSON 消息），不直接触碰 WebSocket。
+ */
+class ChatService {
+  private sessionId: string | null = null
+  private readonly api: ApiProxy
+  private readonly emit: (msg: Record<string, unknown>) => void
+
+  constructor(api: ApiProxy, emit: (msg: Record<string, unknown>) => void) {
+    this.api = api
+    this.emit = emit
+  }
+
+  async ensureSession(): Promise<string> {
+    if (this.sessionId) return this.sessionId
+    const res = await this.api.sessions.create({ rpcId: RpcId(randomUUID()), payload: {} })
+    this.sessionId = String(res.sessionId)
+    return this.sessionId
+  }
+
+  async send(text: string): Promise<void> {
+    const sessionId = await this.ensureSession()
+    await this.api.sessions.prompt({
+      rpcId: RpcId(randomUUID()),
+      payload: { sessionId, mode: 'queue', content: [{ type: 'text', text }] },
+    })
+    this.emit({ type: 'chat-started' })
+  }
+
+  async cancel(): Promise<void> {
+    if (!this.sessionId) return
+    await this.api.sessions.cancel({ rpcId: RpcId(randomUUID()), payload: { sessionId: this.sessionId } })
+  }
+
+  /** 处理 mux 流帧：仅关心本会话的 assistant 文本事件（分片/完整消息/结束）。 */
+  handleFrame(frame: { type: string; sessionId?: unknown; event?: { type: string; data?: unknown } }): void {
+    if (frame.type !== 'session/event' || frame.sessionId !== this.sessionId) return
+    const event = frame.event
+    if (!event) return
+    if (event.type === 'assistant/chunk') {
+      const chunk = (event.data as { chunk?: { type?: string; text?: string } })?.chunk
+      if (chunk?.type === 'text-delta' && chunk.text) this.emit({ type: 'chat-delta', text: chunk.text })
+    } else if (event.type === 'assistant/message') {
+      const text = extractText((event.data as { message?: unknown })?.message)
+      if (text) this.emit({ type: 'chat-message', text })
+    } else if (event.type === 'turn/end') {
+      this.emit({ type: 'chat-done' })
+    }
+  }
+}
+
 /**
  * Mounts the status broadcaster and the pet manager APIs.
  * @param ctx - Plugin context carrying webServer + apiProxy.
@@ -100,12 +161,15 @@ export function apply(ctx: Context, config: Config = {}): void {
     if (running.size > 0) return 'running'
     return terminated ? 'terminated' : 'completed'
   }
-  const broadcast = (): void => {
-    const payload = JSON.stringify({ type: 'status', status: current() })
+  const send = (msg: Record<string, unknown>): void => {
+    const payload = JSON.stringify(msg)
     for (const ws of clients) {
       if (ws.readyState === WebSocket.OPEN) ws.send(payload)
     }
   }
+  const broadcast = (): void => send({ type: 'status', status: current() })
+  // 聊天服务：桥接桌宠 ↔ harness 会话（复用同一条 WS）
+  const chat = new ChatService(ctx.apiProxy, send)
   const scheduleEnded = (): void => {
     if (endedTimer) clearTimeout(endedTimer)
     endedTimer = setTimeout(() => {
@@ -124,6 +188,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     void (async () => {
       for await (const frame of mux) {
         const payload = frame.payload
+        chat.handleFrame(payload as { type: string; sessionId?: unknown; event?: { type: string; data?: unknown } }) // 聊天：转发 assistant 文本
         if (payload.type !== 'session/event') continue
         const event = payload.event
         if (event.type !== 'turn/end') continue
@@ -167,7 +232,15 @@ export function apply(ctx: Context, config: Config = {}): void {
         ws.send(JSON.stringify({ type: 'status', status: current() }))
         ws.on('close', () => clients.delete(ws))
         ws.on('error', () => clients.delete(ws))
-        ws.on('message', () => {})
+        ws.on('message', (data) => {
+          try {
+            const msg = JSON.parse(data.toString()) as { type?: string; text?: string }
+            if (msg.type === 'chat') void chat.send(msg.text ?? '')
+            else if (msg.type === 'chat-cancel') void chat.cancel()
+          } catch {
+            // 非 JSON 消息忽略
+          }
+        })
       })
     },
   }), 'pet-status: WebSocket route')

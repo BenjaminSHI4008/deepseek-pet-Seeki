@@ -61,6 +61,7 @@
     const messages = document.getElementById('messages')
     const input = document.getElementById('input')
     const statusEl = document.getElementById('status')
+    let currentAssistant = null // 当前正在流式累积的 assistant 消息元素
 
     function append(role, text) {
       const el = document.createElement('div')
@@ -76,21 +77,32 @@
       if (!text) return
       append('user', text)
       input.value = ''
-      window.chatAPI.send(text) // P2：经主进程 → 插件 → harness 发起对话
+      window.chatAPI.send(text) // 发送后主进程收起聊天框，转由桌宠显示 Deep diving
     }
 
     document.getElementById('send').addEventListener('click', send)
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send() })
     document.getElementById('close').addEventListener('click', () => window.chatAPI.close())
 
-    // P2：接收流式回复与状态
-    window.chatAPI.onMessage((msg) => {
-      // 占位：P2 落地后处理分片追加/完整消息
-      append('assistant', msg.text ?? msg)
-    })
-    window.chatAPI.onStatus((status) => {
-      statusEl.textContent = status === 'working' ? 'Deep diving...' : status === 'completed' ? 'Completed' : ''
-      statusEl.className = status
+    // 接收流式回复与状态（chat-started / chat-delta / chat-message / chat-done）
+    window.chatAPI.onEvent((msg) => {
+      if (msg.type === 'chat-started') {
+        currentAssistant = append('assistant', '') // 开新一轮，清空旧累积
+        statusEl.textContent = 'Deep diving...'
+        statusEl.className = 'working'
+      } else if (msg.type === 'chat-delta') {
+        if (!currentAssistant) currentAssistant = append('assistant', '')
+        currentAssistant.textContent += msg.text || ''
+        messages.scrollTop = messages.scrollHeight
+      } else if (msg.type === 'chat-message') {
+        if (!currentAssistant) currentAssistant = append('assistant', '')
+        currentAssistant.textContent = msg.text || currentAssistant.textContent // 权威完整文本
+        messages.scrollTop = messages.scrollHeight
+      } else if (msg.type === 'chat-done') {
+        statusEl.textContent = 'Completed'
+        statusEl.className = 'completed'
+        currentAssistant = null
+      }
     })
   </script>
 </body>

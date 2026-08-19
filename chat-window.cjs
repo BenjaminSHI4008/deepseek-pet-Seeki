@@ -49,6 +49,19 @@ class ChatWindow {
     if (this.win && !this.win.isDestroyed()) this.win.close()
   }
 
+  // 收起（输入后转由桌宠显示 Deep diving，聊天框隐藏但继续接收流式输出）
+  hide() {
+    if (this.win && !this.win.isDestroyed()) this.win.hide()
+  }
+
+  // 展开（会话完成时重新显示，展示输出内容，不重新定位）
+  reveal() {
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.show()
+      this.win.focus()
+    }
+  }
+
   // 向聊天框渲染层推送事件（P2：流式回复 / 状态）
   send(channel, payload) {
     if (this.win && !this.win.isDestroyed()) this.win.webContents.send(channel, payload)

@@ -46,8 +46,15 @@ ipcMain.handle('pet-open-chat', () => {
 })
 ipcMain.on('chat-close', () => chatWindow.close())
 ipcMain.on('chat-send', (_e, text) => {
-  // P2：经 WebSocket 发给插件 → harness 发起会话；P1 仅打印占位
-  console.log('[chat] 待接入 harness：', text)
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'chat', text }))
+  }
+  chatWindow.hide() // 输入后收起聊天框，转由桌宠气泡显示 Deep diving
+})
+ipcMain.on('chat-cancel', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'chat-cancel' }))
+  }
 })
 
 function connect() {
@@ -61,6 +68,12 @@ function connect() {
     try {
       const msg = JSON.parse(data.toString())
       if (msg.type === 'status') pushStatus(msg.status)
+      else if (msg.type === 'chat-done') {
+        chatWindow.reveal() // 会话完成 → 展开聊天框展示输出
+        chatWindow.send('chat-event', msg)
+      } else if (msg.type && msg.type.startsWith('chat-')) {
+        chatWindow.send('chat-event', msg)
+      }
     } catch {
       // 非 JSON 消息忽略
     }
