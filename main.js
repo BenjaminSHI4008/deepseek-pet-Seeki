@@ -84,11 +84,39 @@ function pickPlay(list) {
   return valid[Math.floor(Math.random() * valid.length)]
 }
 
+// 拖拽方向 → 动作：根据鼠标移动方向实时切换，支持水平/垂直镜像
+function classifyDirection(dx, dy) {
+  if (Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? 'left' : 'right'
+  return dy < 0 ? 'up' : 'down'
+}
+function playDragDirection(dir) {
+  const d = CS.drag?.directions?.[dir]
+  if (!d || !Array.isArray(d.play) || d.play.length === 0) return // 未配置该方向：保持当前动作
+  const action = pickPlay(d.play)
+  setState(action, { flipX: d.flipX ?? false, flipY: d.flipY ?? false })
+}
+function updateDragDirection(x, y) {
+  if (!dragDirOrigin) { dragDirOrigin = { x, y }; return }
+  const dx = x - dragDirOrigin.x
+  const dy = y - dragDirOrigin.y
+  if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return // 位移阈值，避免方向抖动
+  const dir = classifyDirection(dx, dy)
+  if (dir !== lastDragDir) {
+    lastDragDir = dir
+    playDragDirection(dir)
+  }
+  dragDirOrigin = { x, y }
+}
+
 // ── 状态机（动作 = 角色动作，intro 播一次后进入 loop 循环）──────────
 let state = defaultAction
 let phase = ACTIONS[state].intro.length > 0 ? 'intro' : 'loop'
 let frameIdx = 0
 let lastFrameTime = 0
+let flipX = false // 当前动作水平镜像
+let flipY = false // 当前动作垂直镜像
+let dragDirOrigin = null // 拖拽方向判定的起点
+let lastDragDir = null // 上一次判定的方向
 
 const cur = () => ACTIONS[state]
 const curFrames = () => (phase === 'intro' ? cur().intro : cur().loop)
@@ -101,9 +129,11 @@ const cancelReturn = () => { if (returnTimer) { clearTimeout(returnTimer); retur
 let statusActionTimer = null
 const cancelStatusAction = () => { if (statusActionTimer) { clearTimeout(statusActionTimer); statusActionTimer = null } }
 
-function setState(s) {
+function setState(s, opts = {}) {
   s = fallbackAction(s)
   state = s
+  flipX = opts.flipX ?? false
+  flipY = opts.flipY ?? false
   phase = ACTIONS[s].intro.length > 0 ? 'intro' : 'loop'
   frameIdx = 0
   lastFrameTime = performance.now()
@@ -121,9 +151,18 @@ function drawFrame(path) {
   if (!img) return // 防御：缺帧时保持上一帧
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.imageSmoothingEnabled = false
-  const dx = (canvas.width - img.naturalWidth * SCALE) / 2
-  const dy = (canvas.height - img.naturalHeight * SCALE) / 2
-  ctx.drawImage(img, dx, dy, img.naturalWidth * SCALE, img.naturalHeight * SCALE)
+  const w = img.naturalWidth * SCALE
+  const h = img.naturalHeight * SCALE
+  const dx = (canvas.width - w) / 2
+  const dy = (canvas.height - h) / 2
+  ctx.save()
+  if (flipX || flipY) {
+    ctx.translate(canvas.width / 2, canvas.height / 2)
+    ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1)
+    ctx.translate(-canvas.width / 2, -canvas.height / 2)
+  }
+  ctx.drawImage(img, dx, dy, w, h)
+  ctx.restore()
 }
 
 function tick(now) {
@@ -221,6 +260,8 @@ canvas.addEventListener('mousedown', (e) => {
   moved = false
   downState = state
   dragStart = { x: e.screenX, y: e.screenY }
+  dragDirOrigin = null
+  lastDragDir = null
   window.petAPI.dragStart(e.screenX, e.screenY)
   if (state === CS.timeout.after) setState(CS.timeout.before) // 睡觉中按下 → 唤醒
 })
@@ -228,9 +269,13 @@ window.addEventListener('mousemove', (e) => {
   if (!dragging) return
   if (!moved && Math.hypot(e.screenX - dragStart.x, e.screenY - dragStart.y) > 4) {
     moved = true
-    setState(pickPlay(CS.drag.play)) // 拖动 → 随机播放拖动动作
+    dragDirOrigin = { x: dragStart.x, y: dragStart.y }
+    lastDragDir = null
   }
-  if (moved) window.petAPI.dragMove(e.screenX, e.screenY)
+  if (moved) {
+    window.petAPI.dragMove(e.screenX, e.screenY)
+    updateDragDirection(e.screenX, e.screenY) // 根据移动方向实时切换动作
+  }
 })
 window.addEventListener('mouseup', () => {
   if (dragging && moved) {

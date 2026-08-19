@@ -353,7 +353,7 @@ export function apply(ctx: Context, config: Config = {}): void {
           const fallback = rest.includes('idle') ? 'idle' : rest[0]
 
           // 回退引用（v3：characterStates）
-          const cs = (cfg.characterStates ?? {}) as Record<string, { play?: unknown[]; returnTo?: unknown; before?: unknown; after?: unknown }>
+          const cs = (cfg.characterStates ?? {}) as Record<string, { play?: unknown[]; returnTo?: unknown; before?: unknown; after?: unknown; directions?: Record<string, { play?: unknown[] }> }>
           const repointPlay = (key: string): void => {
             const st = cs[key]
             if (!st || !Array.isArray(st.play)) return
@@ -362,9 +362,18 @@ export function apply(ctx: Context, config: Config = {}): void {
           }
           repointPlay('default')
           repointPlay('click')
-          repointPlay('drag')
           if (cs.click && cs.click.returnTo === action) cs.click.returnTo = fallback
-          if (cs.drag && cs.drag.returnTo === action) cs.drag.returnTo = fallback
+          if (cs.drag) {
+            if (cs.drag.returnTo === action) cs.drag.returnTo = fallback
+            if (cs.drag.directions) {
+              for (const d of Object.values(cs.drag.directions)) {
+                if (Array.isArray(d.play)) {
+                  d.play = d.play.filter((a) => a !== action)
+                  if (d.play.length === 0) d.play = [fallback]
+                }
+              }
+            }
+          }
           if (cs.timeout) {
             if (cs.timeout.before === action) cs.timeout.before = fallback
             if (cs.timeout.after === action) cs.timeout.after = fallback

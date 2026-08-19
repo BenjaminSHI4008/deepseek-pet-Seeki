@@ -74,9 +74,25 @@
       "afterMs": 2000
     },
     "drag": {
-      "play": [
-        "walk"
-      ],
+      "directions": {
+        "left": {
+          "play": [
+            "walk"
+          ]
+        },
+        "right": {
+          "play": [
+            "walk"
+          ],
+          "flipX": true
+        },
+        "up": {
+          "play": []
+        },
+        "down": {
+          "play": []
+        }
+      },
       "returnTo": "idle"
     },
     "timeout": {

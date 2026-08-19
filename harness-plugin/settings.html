@@ -155,6 +155,14 @@
     .chip-add { display: flex; gap: 8px; margin-top: 8px; }
     .chip-add select { flex: 1; }
 
+    /* ── 拖拽方向 ── */
+    .drag-dirs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 4px 0 6px; }
+    .drag-dir { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px; background: #fbfdff; }
+    .drag-dir .dir-label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-700); margin-bottom: 8px; }
+    .drag-dir .flip { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-500); margin-top: 9px; cursor: pointer; }
+    .drag-dir .flip input { accent-color: var(--primary); cursor: pointer; }
+    @media (max-width: 560px) { .drag-dirs { grid-template-columns: 1fr; } }
+
     /* ── 帧管理 ── */
     .frame-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin: 14px 0; padding-top: 14px; border-top: 1px dashed var(--line); }
     .frame-row:first-of-type { padding-top: 0; border-top: none; }
@@ -239,11 +247,34 @@
       </div>
 
       <div class="cs-row">
-        <div class="field grow"><label>拖动 drag · 状态开始（多个 = 随机）</label>
-          <div class="chips" id="cs-drag-play"></div>
-          <div class="chip-add"><select id="cs-drag-add"></select><button class="btn-mini add" data-add-play="drag">＋添加</button></div>
-        </div>
         <div class="field"><label>状态末（松开后）</label><select id="cs-drag-return"></select></div>
+      </div>
+
+      <div class="drag-dirs">
+        <div class="drag-dir">
+          <span class="dir-label">← 向左</span>
+          <div class="chips" data-drag-chips="left"></div>
+          <div class="chip-add"><select data-drag-add="left"></select><button class="btn-mini add" data-drag-addbtn="left">＋</button></div>
+          <label class="flip"><input type="checkbox" data-drag-flipx="left" /> 水平镜像</label>
+        </div>
+        <div class="drag-dir">
+          <span class="dir-label">→ 向右</span>
+          <div class="chips" data-drag-chips="right"></div>
+          <div class="chip-add"><select data-drag-add="right"></select><button class="btn-mini add" data-drag-addbtn="right">＋</button></div>
+          <label class="flip"><input type="checkbox" data-drag-flipx="right" /> 水平镜像</label>
+        </div>
+        <div class="drag-dir">
+          <span class="dir-label">↑ 向上</span>
+          <div class="chips" data-drag-chips="up"></div>
+          <div class="chip-add"><select data-drag-add="up"></select><button class="btn-mini add" data-drag-addbtn="up">＋</button></div>
+          <label class="flip"><input type="checkbox" data-drag-flipy="up" /> 垂直翻转</label>
+        </div>
+        <div class="drag-dir">
+          <span class="dir-label">↓ 向下</span>
+          <div class="chips" data-drag-chips="down"></div>
+          <div class="chip-add"><select data-drag-add="down"></select><button class="btn-mini add" data-drag-addbtn="down">＋</button></div>
+          <label class="flip"><input type="checkbox" data-drag-flipy="down" /> 垂直翻转</label>
+        </div>
       </div>
 
       <div class="cs-row">
@@ -324,10 +355,26 @@
       const cs = config.characterStates
       cs.default = cs.default || { play: ['idle'] }
       cs.click = cs.click || { play: ['happy'], returnTo: 'idle', afterMs: 2000 }
-      cs.drag = cs.drag || { play: ['walk'], returnTo: 'idle' }
+      cs.drag = cs.drag || {}
+      cs.drag.returnTo = cs.drag.returnTo || 'idle'
       cs.timeout = cs.timeout || { before: 'idle', after: 'sleep', afterMs: 12000 }
-      for (const k of ['default', 'click', 'drag']) {
+      for (const k of ['default', 'click']) {
         if (!Array.isArray(cs[k].play)) cs[k].play = [cs[k].play].filter(Boolean)
+      }
+      // 拖拽方向：旧 play（单一池）→ directions（上下左右映射，向右默认镜像）
+      if (!cs.drag.directions) {
+        const oldPlay = Array.isArray(cs.drag.play) ? [...cs.drag.play] : []
+        cs.drag.directions = {
+          left: { play: oldPlay },
+          right: { play: oldPlay, flipX: true },
+          up: { play: [] },
+          down: { play: [] },
+        }
+        delete cs.drag.play
+      }
+      for (const dir of ['left', 'right', 'up', 'down']) {
+        const d = cs.drag.directions[dir] || (cs.drag.directions[dir] = {})
+        if (!Array.isArray(d.play)) d.play = []
       }
       // 任务状态动作：旧 action（单个）→ actions（数组，多个=随机）
       for (const s of Object.values(config.statuses || {})) {
@@ -394,9 +441,16 @@
       document.getElementById('cs-click-add').innerHTML = actionSelect('')
       document.getElementById('cs-click-return').innerHTML = actionSelect(cs.click.returnTo)
       document.getElementById('cs-click-ms').value = cs.click.afterMs
-      renderChips('cs-drag-play', cs.drag.play)
-      document.getElementById('cs-drag-add').innerHTML = actionSelect('')
       document.getElementById('cs-drag-return').innerHTML = actionSelect(cs.drag.returnTo)
+      for (const dir of ['left', 'right', 'up', 'down']) {
+        const d = cs.drag.directions[dir]
+        document.querySelector(`[data-drag-chips="${dir}"]`).innerHTML = chipsHtml(d.play)
+        document.querySelector(`[data-drag-add="${dir}"]`).innerHTML = actionSelect('')
+        const flipx = document.querySelector(`[data-drag-flipx="${dir}"]`)
+        if (flipx) flipx.checked = !!d.flipX
+        const flipy = document.querySelector(`[data-drag-flipy="${dir}"]`)
+        if (flipy) flipy.checked = !!d.flipY
+      }
       document.getElementById('cs-timeout-before').innerHTML = actionSelect(cs.timeout.before)
       document.getElementById('cs-timeout-after').innerHTML = actionSelect(cs.timeout.after)
       document.getElementById('cs-timeout-ms').value = cs.timeout.afterMs
@@ -430,24 +484,45 @@
 
     document.getElementById('frame-action').addEventListener('change', (e) => renderFrames(e.target.value))
 
-    // 角色状态随机池：chip 删除 / 添加动作
-    for (const key of ['click', 'drag']) {
-      document.getElementById(`cs-${key}-play`).addEventListener('click', (e) => {
-        const rm = e.target.closest('[data-rm]')
-        if (!rm) return
-        const pool = config.characterStates[key].play
-        config.characterStates[key].play = pool.filter((a) => a !== rm.dataset.rm)
-        renderChips(`cs-${key}-play`, config.characterStates[key].play)
-      })
-      document.querySelector(`[data-add-play="${key}"]`).addEventListener('click', () => {
-        const select = document.getElementById(`cs-${key}-add`)
-        const v = select.value
+    // 角色状态随机池（点击）：chip 删除 / 添加动作
+    document.getElementById('cs-click-play').addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-rm]')
+      if (!rm) return
+      config.characterStates.click.play = config.characterStates.click.play.filter((a) => a !== rm.dataset.rm)
+      renderChips('cs-click-play', config.characterStates.click.play)
+    })
+    document.querySelector('[data-add-play="click"]').addEventListener('click', () => {
+      const select = document.getElementById('cs-click-add')
+      const v = select.value
+      if (!v) return
+      const pool = config.characterStates.click.play
+      if (!pool.includes(v)) pool.push(v)
+      renderChips('cs-click-play', pool)
+    })
+
+    // 拖拽方向随机池：chip 删除 / 添加动作（事件委托，4 个方向）
+    document.querySelector('.drag-dirs').addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-rm]')
+      const chipsEl = e.target.closest('[data-drag-chips]')
+      if (rm && chipsEl) {
+        const dir = chipsEl.dataset.dragChips
+        const d = config.characterStates.drag.directions[dir]
+        if (Array.isArray(d.play)) d.play = d.play.filter((a) => a !== rm.dataset.rm)
+        chipsEl.innerHTML = chipsHtml(d.play)
+        return
+      }
+      const addBtn = e.target.closest('[data-drag-addbtn]')
+      if (addBtn) {
+        const dir = addBtn.dataset.dragAddbtn
+        const select = document.querySelector(`[data-drag-add="${dir}"]`)
+        const v = select && select.value
         if (!v) return
-        const pool = config.characterStates[key].play
-        if (!pool.includes(v)) pool.push(v)
-        renderChips(`cs-${key}-play`, pool)
-      })
-    }
+        const d = config.characterStates.drag.directions[dir]
+        if (!Array.isArray(d.play)) d.play = []
+        if (!d.play.includes(v)) d.play.push(v)
+        document.querySelector(`[data-drag-chips="${dir}"]`).innerHTML = chipsHtml(d.play)
+      }
+    })
 
     // 任务状态动作随机池：chip 删除 / 添加动作（事件委托）
     document.getElementById('statuses-body').addEventListener('click', (e) => {
@@ -550,7 +625,8 @@
         if ((s.actions || []).includes(action)) refs.push(`任务状态「${STATUS_MEANING[sid] ?? sid}」`)
       }
       if ((cs.click?.play || []).includes(action) || cs.click?.returnTo === action) refs.push('点击')
-      if ((cs.drag?.play || []).includes(action) || cs.drag?.returnTo === action) refs.push('拖动')
+      const dragDirs = cs.drag?.directions || {}
+      if (Object.values(dragDirs).some((d) => (d.play || []).includes(action)) || cs.drag?.returnTo === action) refs.push('拖动')
       if (cs.timeout?.before === action || cs.timeout?.after === action) refs.push('超时')
       return refs
     }
@@ -604,8 +680,15 @@
       cs.click.play = [...document.querySelectorAll('#cs-click-play .chip')].map((c) => c.dataset.chip)
       cs.click.returnTo = document.getElementById('cs-click-return').value
       cs.click.afterMs = Number(document.getElementById('cs-click-ms').value)
-      cs.drag.play = [...document.querySelectorAll('#cs-drag-play .chip')].map((c) => c.dataset.chip)
       cs.drag.returnTo = document.getElementById('cs-drag-return').value
+      for (const dir of ['left', 'right', 'up', 'down']) {
+        const d = cs.drag.directions[dir]
+        d.play = [...document.querySelectorAll(`[data-drag-chips="${dir}"] .chip`)].map((c) => c.dataset.chip)
+        const flipx = document.querySelector(`[data-drag-flipx="${dir}"]`)
+        if (flipx) d.flipX = flipx.checked
+        const flipy = document.querySelector(`[data-drag-flipy="${dir}"]`)
+        if (flipy) d.flipY = flipy.checked
+      }
       cs.timeout.before = document.getElementById('cs-timeout-before').value
       cs.timeout.after = document.getElementById('cs-timeout-after').value
       cs.timeout.afterMs = Number(document.getElementById('cs-timeout-ms').value)
