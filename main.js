@@ -198,7 +198,21 @@ let moved = false
 let downState = null
 let dragStart = { x: 0, y: 0 }
 
+// 命中检测：只在角色非透明像素上响应点击/拖动，缩小「选定框」到角色本体
+function hitTest(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect()
+  const x = Math.floor((clientX - rect.left) * (canvas.width / rect.width))
+  const y = Math.floor((clientY - rect.top) * (canvas.height / rect.height))
+  if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return false
+  try {
+    return ctx.getImageData(x, y, 1, 1).data[3] > 16
+  } catch {
+    return true // 读取失败放行，避免无法交互
+  }
+}
+
 canvas.addEventListener('mousedown', (e) => {
+  if (!hitTest(e.clientX, e.clientY)) return // 透明区域不响应，只在角色像素上触发
   dragging = true
   moved = false
   downState = state
