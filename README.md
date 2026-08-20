@@ -11,12 +11,7 @@ Seeki is a pixel pet that floats on your desktop and keeps a [DeepSeek Harness](
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
-<!--
-  TODO: hero screenshot — Seeki pet + chat window, side by side.
-  ![Seeki](docs/screenshots/hero.png)
--->
-
-<img src="./Deepseek/rotations/south.png" width="128" alt="Seeki — standing pose" />
+<img src="./docs/screenshots/hero.png" width="440" alt="Seeki — desktop pet + chat window" />
 
 </div>
 
@@ -78,28 +73,17 @@ Status bubbles, animations, frame rates, and triggers all live in `pet.config.js
 
 ## Screenshots
 
-> Real product screenshots are being prepared. The slots below mark what to capture; nothing here is a placeholder for a feature that doesn't exist.
+### 💬 Conversation
 
-<!--
-### Hero — Seeki + chat window
-![Seeki and the chat window](docs/screenshots/hero.png)
+![A real conversation](./docs/screenshots/conversation.png)
 
-### Conversation
-![A real conversation](docs/screenshots/conversation.png)
+### 🗂️ Workspace & model switching
 
-### Workspace & model switching
-![Workspace selector and model dropdown](docs/screenshots/workspace-model.png)
+![Workspace selector and model dropdown](./docs/screenshots/workspace-model.png)
 
-### Character states
-![Idle / walking / sleeping](docs/screenshots/states.gif)
--->
+### 🎮 Character states
 
-**Screenshot plan (what to capture):**
-
-1. **Hero** — Seeki pet next to the open chat window (pet + agent UI). *Suggested: 1280×720, placed in the Hero section above.*
-2. **Conversation** — a real multi-turn chat, showing the pixel bubble UI. *Suggested: 720×640.*
-3. **Workspace & model** — the chat window title bar with the workspace folder selector and the model dropdown. *Suggested: 720×420.*
-4. **Character states** — a short GIF of idle → walking → sleeping. *Suggested: 320×320.*
+![Idle, walking, sleeping](./docs/screenshots/states.png)
 
 ---
 

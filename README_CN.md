@@ -11,12 +11,7 @@ Seeki 是一只会悬浮在桌面上的像素小精灵，让 [DeepSeek Harness](
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#参与贡献)
 
-<!--
-  TODO: hero 截图 — Seeki 桌宠 + 聊天窗口。
-  ![Seeki](docs/screenshots/hero.png)
--->
-
-<img src="./Deepseek/rotations/south.png" width="128" alt="Seeki — 站姿" />
+<img src="./docs/screenshots/hero.png" width="440" alt="Seeki — 桌面宠物 + 聊天窗口" />
 
 </div>
 
@@ -78,28 +73,17 @@ Seeki 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) ag
 
 ## 截图
 
-> 真实产品截图正在准备中。下面的位置标记了要截的内容，这里没有任何虚构的功能占位。
+### 💬 对话
 
-<!--
-### Hero — Seeki + 聊天窗口
-![Seeki 和聊天窗口](docs/screenshots/hero.png)
+![一次真实对话](./docs/screenshots/conversation.png)
 
-### 对话
-![一次真实对话](docs/screenshots/conversation.png)
+### 🗂️ 工作区 & 模型切换
 
-### 工作区 & 模型切换
-![工作区选择器与模型下拉](docs/screenshots/workspace-model.png)
+![工作区选择器与模型下拉](./docs/screenshots/workspace-model.png)
 
-### 角色状态
-![待机 / 走路 / 睡觉](docs/screenshots/states.gif)
--->
+### 🎮 角色状态
 
-**截图计划（待拍）：**
-
-1. **Hero** — Seeki 桌宠 + 打开的聊天窗口（桌宠 + agent UI）。*建议 1280×720，放在上方 Hero 区。*
-2. **对话** — 一次真实多轮聊天，展示像素气泡 UI。*建议 720×640。*
-3. **工作区 & 模型** — 聊天窗口标题栏的工作区文件夹选择器 + 模型下拉。*建议 720×420。*
-4. **角色状态** — 待机 → 走路 → 睡觉的短 GIF。*建议 320×320。*
+![待机、走路、睡觉](./docs/screenshots/states.png)
 
 ---
 
