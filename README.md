@@ -1,211 +1,254 @@
-# DeepSeek Pet
+<div align="center">
 
-> 一个基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的**桌面宠物（桌宠）插件**：透明、无边框、置顶的像素风角色悬浮在桌面上，跟随 agent 任务状态实时切换动画与头顶气泡。角色名：**Seeki**。
+# Seeki
 
-## 项目定位
+**A tiny DeepSeek-powered desktop companion that lives on your screen and helps you get things done.**
 
-本项目定位为 DeepSeek Harness 的一个 Plugin（社区项目，非官方）。它由两部分组成：
+*[English](./README.md) · [简体中文](./README_CN.md)*
 
-1. **`dsh-pet-status` 插件**（`harness-plugin/`）——随 `pnpm dsh web` 加载，订阅 harness 事件流，把 agent 活动收敛成任务状态经 WebSocket 广播，并自动拉起/关闭桌宠；
-2. **Electron 桌宠应用**（仓库根目录）——透明置顶窗口 + 2D 像素精灵状态机，配置驱动。
+Seeki is a pixel pet that floats on your desktop and keeps a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) agent one double-click away. It's a **Desktop Pet × DeepSeek × Agent** — persistent conversations organized by workspace, per-task model switching, and a character that actually reacts while your agent is working.
 
-## 特性
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
-- **透明、无边框、置顶**的桌面窗口（`transparent` + `frame:false` + `alwaysOnTop`）。
-- **2D 精灵状态机**：待机（呼吸）/ 开心 / 拖动（走路）/ 打哈欠→睡觉，帧动画循环、intro 播一次。
-- **与 agent 状态联动**：头顶气泡随任务状态显示「Deep diving... / Completed / Stopped / Offline」。
-- **交互**：拖拽移动（走路）、单击（开心）、超时自动睡觉、睡眠中点击唤醒。
-- **配置驱动**：状态文案/颜色、动画帧率/帧数、触发规则全部声明在 `pet.config.json`，无需改渲染代码。
-- **可视化配置页**（`/pet/settings`）：编辑任务状态、角色状态、角色动作，上传/替换/删除动作帧。
+<!--
+  TODO: hero screenshot — Seeki pet + chat window, side by side.
+  ![Seeki](docs/screenshots/hero.png)
+-->
 
-## 状态模型（三个维度，已拆分）
+<img src="./Deepseek/rotations/south.png" width="128" alt="Seeki — standing pose" />
 
-桌宠的「状态」拆成三个正交维度，避免混用：
+</div>
 
-**① 任务状态 Task Statuses**（来自 harness，决定头顶气泡）：
+> Seeki is an independent community project. It is **not** an official DeepSeek product.
 
-| 键 | 含义 | 默认气泡 | 颜色 |
-|---|---|---|---|
-| `received` | 收到发送（进入任务前） | 收到啦 | 橙 |
-| `running` | 任务进行 | Deep diving... | 蓝 |
-| `completed` | 任务完成 | Completed | 绿 |
-| `terminated` | 任务截止（报错/手动停止） | Stopped | 红 |
-| `offline` | 离线（未连 harness） | Offline | 灰 |
+---
 
-**② 角色动作 Character Actions**（桌宠自身动画）：
+## Why Seeki?
 
-| 键 | 标签 | 动画目录 |
-|---|---|---|
-| `idle` | 待机 | `Breathing_Idle` |
-| `happy` | 开心 | `Happy` |
-| `walk` | 拖动 | `Crouched_Walking` |
-| `sleep` | 睡觉 | `Close_eyes_and_sleeping` |
+You can already talk to DeepSeek in a browser tab. Seeki adds the layer a chat UI can't:
 
-任务状态可以「触发」一个或多个角色动作（如 `completed → [happy, spin]`，多个时随机播放）。
+| Instead of… | Seeki gives you… |
+|---|---|
+| a tab you have to find | a character that **lives on your desktop**, always one glance away |
+| pasting context every session | **persistent conversations**, organized into workspaces |
+| one default model | **per-task model switching** — pick a different model for the next message |
+| a static web app | a **pixel companion** with idle / happy / walking / sleeping states |
+| reading logs | an **at-a-glance status bubble** above the character (received → working → done) |
 
-**③ 角色状态 Character States**（以「鼠标状态」为底层，决定何时播哪个动作）：
+Every one of these maps to something Seeki actually does today — no marketing filler.
 
-| 鼠标状态 | 含义 | 状态开始（多个=随机） | 状态末 |
-|---|---|---|---|
-| `default` | 默认（常驻） | `idle` | — |
-| `click` | 单击 | `happy`（可多个 → 随机） | 返回 `idle` |
-| `drag` | 拖动（按方向） | 左/右/上/下分别映射动作（多个=随机，支持水平/垂直镜像） | 松开后 `idle` |
-| `timeout` | 超时（合并一条规则） | 超时前 `idle` → 超时后 `sleep` | 唤醒回 `idle` |
+---
 
-同一个鼠标状态挂多个动作时随机播放（如单击随机播「开心 / 转圈」）；拖动会根据鼠标移动方向实时切换对应动作（如左拖「朝左走」、右拖「朝右走」镜像）。
+## Features
 
-## 快速开始
+### 🐾 Lives on your desktop
 
-### 方式〇：桌面快捷组件（一键安装，双击启动，推荐）
+Seeki is a transparent, frameless, always-on-top window — a 2D pixel character that stays on your screen instead of hiding in a tab.
 
-一条命令完成「装插件 + 在桌面生成一个伪可执行图标」。双击图标即**后台拉起 deepseek-harness 并唤起桌宠**（无终端、无浏览器窗口）：
+### 💬 Persistent conversations
+
+Double-click Seeki to chat. Conversations are **persistent and multi-turn**, organized into **workspaces**, with a conversation switcher to jump back into any previous thread.
+
+### 🧠 A DeepSeek Harness agent behind the pet
+
+Seeki is the desktop face of a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) agent. The head bubble reflects the agent's live status:
+
+| Status | Bubble |
+|---|---|
+| `received` | 收到啦 · received |
+| `running` | Deep diving... |
+| `completed` | Completed |
+| `terminated` | Stopped |
+| `offline` | Offline |
+
+### 🔀 Per-task model switching
+
+Switch between your configured DeepSeek models straight from the chat window. The switch applies to the **next message only** and never interrupts a running turn; a new conversation inherits the current model.
+
+### 🎮 A character, not a static icon
+
+Idle breathing, happy, walking (drag), and sleeping animations — plus drag-direction switching (left / right / up / down with mirroring) and click / idle-timeout interactions.
+
+### ⚙️ Config-driven, no code edits
+
+Status bubbles, animations, frame rates, and triggers all live in `pet.config.json`, editable through a built-in `/pet/settings` page — including **uploading, replacing, and deleting animation frames**.
+
+---
+
+## Screenshots
+
+> Real product screenshots are being prepared. The slots below mark what to capture; nothing here is a placeholder for a feature that doesn't exist.
+
+<!--
+### Hero — Seeki + chat window
+![Seeki and the chat window](docs/screenshots/hero.png)
+
+### Conversation
+![A real conversation](docs/screenshots/conversation.png)
+
+### Workspace & model switching
+![Workspace selector and model dropdown](docs/screenshots/workspace-model.png)
+
+### Character states
+![Idle / walking / sleeping](docs/screenshots/states.gif)
+-->
+
+**Screenshot plan (what to capture):**
+
+1. **Hero** — Seeki pet next to the open chat window (pet + agent UI). *Suggested: 1280×720, placed in the Hero section above.*
+2. **Conversation** — a real multi-turn chat, showing the pixel bubble UI. *Suggested: 720×640.*
+3. **Workspace & model** — the chat window title bar with the workspace folder selector and the model dropdown. *Suggested: 720×420.*
+4. **Character states** — a short GIF of idle → walking → sleeping. *Suggested: 320×320.*
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- **Node.js ≥ 22** and **pnpm**
+- A clone of [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) with `pnpm install` run once — Seeki runs as a plugin inside it
+- A **DeepSeek API key** configured for the harness (see [Model Configuration](#model-configuration))
 
 ```sh
-cd <deepseek-pet>
-bash scripts/install.sh        # macOS：生成桌面 Seeki.app
+# 1. Clone both repos
+git clone https://github.com/deepseek-ai/deepseek-harness.git
+git clone https://github.com/BenjaminSHI4008/deepseek-pet.git
+cd deepseek-harness && pnpm install
+
+# 2. Install Seeki (plugin + a desktop icon)
+cd ../deepseek-pet
+bash scripts/install.sh
 ```
 
 ```powershell
-# Windows（PowerShell）：生成桌面 Seeki.lnk
+# Windows (PowerShell)
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 
-- 脚本会把插件装进 `~/.dsh/profiles/web`，并在桌面生成 `Seeki.app`（macOS）/ `Seeki.lnk`（Windows）——它们只是**内置启动指令的伪可执行文件**，不含打包产物。
-- 图标内部指令 = 后台运行 `dsh web --port 3080`（可用 `PET_PORT` 改端口）+ 幂等唤起桌宠；脚本会自动定位 harness 仓库与 node。
-- **生命周期**：桌宠**只影响自身**——双击图标会同步唤醒后台 harness 并唤起桌宠，但退出桌宠**不会**关闭 harness（harness 常驻后台，下次双击直接唤回桌宠）。
-- **退出**：右键桌宠 →「退出桌宠」（仅退出桌宠）。
+3. **Run** — double-click `Seeki.app` (macOS) / `Seeki.lnk` (Windows). The icon launches DeepSeek Harness in the background and wakes Seeki.
 
-### 方式一：随 DeepSeek Harness 启动（手动）
+The installer auto-detects your `deepseek-harness` checkout (a sibling directory, `~/deepseek-harness`, or `~/Projects/deepseek-harness`) and asks if it can't find it.
 
-1. 安装插件到 dsh web profile：
+---
+
+## Installation
+
+Two ways to run, plus a standalone offline mode.
+
+### A. One-click desktop icon *(recommended)*
+
+`scripts/install.sh` (macOS) / `scripts/install.ps1` (Windows) installs the plugin and creates a **pseudo-executable** desktop icon — it contains only a launch command, no bundled runtime.
+
+- **Start:** double-click → starts the harness in the background → wakes Seeki.
+- **Exit:** right-click the pet → 「退出桌宠」. Quitting Seeki **does not** stop the harness (it keeps running in the background; the next double-click just re-wakes the pet).
+
+### B. Run with DeepSeek Harness manually
 
 ```sh
 cd <deepseek-pet>
-bash scripts/install-harness-plugin.sh
+bash scripts/install-harness-plugin.sh   # install the plugin into the web profile
+
+cd <deepseek-harness>
+pnpm dsh web                            # Seeki auto-launches with the harness
 ```
 
-脚本会把插件复制到 `~/.dsh/profiles/node_modules/dsh-pet-status/`、写进依赖清单、并在 `cordis.patch.yml` 里挂载并开启 `autoStart`。
-
-2. 启动 harness（桌宠会自动拉起）：
+### C. Standalone pet (offline, no agent)
 
 ```sh
-cd ~/Projects/deepseek-harness
-pnpm dsh web
-```
-
-停止 `dsh web`（Ctrl+C）时，桌宠随之一并关闭。
-
-### 方式二：独立运行（仅桌宠，离线模式）
-
-```sh
+cd <deepseek-pet>
 npm install
 npm start
 ```
 
-- 窗口出现在屏幕右下角，拖拽即可移动。
-- 右键窗口 →「⚙️ 更改配置」打开配置页，「退出桌宠」关闭。
-- 独立运行时不连接 harness，气泡显示「Offline」。
+This runs only the pet. Without a connected harness the bubble shows **Offline**.
 
-> 依赖 Electron（`npm install` 自动下载二进制）。中国大陆网络较慢时，先执行
-> `export ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"` 加速下载。
+> Electron downloads its binary on `npm install`. On slow networks in mainland China, run
+> `export ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"` first.
 
-## 配置管理（`/pet/settings`）
+---
 
-右键桌宠 →「⚙️ 更改配置」，或直接访问 `http://127.0.0.1:3080/pet/settings`。页面分四个板块：
+## Model Configuration
 
-- **任务状态**：气泡文字、颜色、完成后触发一个或多个角色动作（随机播放）；
-- **角色状态**：以鼠标状态为底层（默认 / 点击 / 拖动 / 超时），「状态开始」可挂多个动作（随机播放）、「状态末」选返回动作、可调时长；
-- **角色动作**：标签、帧目录、帧数、帧率，以及**删除动作**；
-- **动作帧管理**：帧缩略图预览、上传替换帧、添加新动作、重启桌宠。
+Seeki doesn't hardcode models. The chat window's model list comes from your DeepSeek Harness's configured providers (`llm.models`), so it always reflects what your harness actually advertises (for example **DeepSeek-V4-Pro** and **DeepSeek-V4-Flash** on the `deepseek-official` route).
 
-改动说明：
+- **API key** — configure it for the harness, not for Seeki: set `DEEPSEEK_API_KEY` in the environment, in a `.env` file at the harness root, or via the harness's credentials store (`~/.dsh/.credentials.yaml`).
+- **Default model** — the harness's own default. Seeki doesn't impose one.
+- **Switch models** — use the model dropdown in the chat title bar. It affects the **next message only**; new conversations inherit the current selection; unavailable models show as disabled.
 
-| 改了什么 | 生效方式 |
-|---|---|
-| 文字 / 颜色 / 触发点 / 帧 | 点「重启桌宠」 |
-| 状态协议（插件与桌宠的 WebSocket） | 重启 `pnpm dsh web` |
+Full `pet.config.json` reference: [docs/config.md](./docs/config.md).
 
-## HTTP API 速览（由插件提供）
+---
 
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| `GET` | `/api/pet.config` | 读配置 |
-| `PUT` | `/api/pet.config` | 写配置 |
-| `POST` | `/api/pet.frames` | 上传/替换动作帧（base64 JSON，校验 PNG + 尺寸上限 256px） |
-| `DELETE` | `/api/pet.action` | 删除动作（连带删帧目录 + 引用安全回退） |
-| `GET` | `/pet/frames/<folder>/<file>` | 帧图片预览 |
-| `POST` | `/api/pet.restart` | 重启桌宠子进程 |
-| `GET` | `/pet/settings` | 配置管理页 |
+## How It Works
 
-## 加 / 删动作
-
-**加动作**：配置页「动作帧管理」→ 输入动作名 + 多选 PNG 帧 →「添加动作」；再到「角色状态」或「任务状态」里把它挂到某个触发点。
-
-**删动作**：配置页「角色动作」表里点「删除」。会同时删除其帧目录，并把所有引用（默认待机/点击/拖动/超时）自动回退到 `idle`。
-
-也可手动操作（动作帧目录约定为 `Deepseek/animations/<目录>/south/frame_NNN.png`，`NNN` 三位零填充）。
-
-## 对话（双击聊天）
-
-双击桌宠角色即可与 DeepSeek Harness 对话：
-
-- **打开**：双击角色 → 弹像素风聊天框；首次打开会询问**工作区文件夹**（默认 `~/deepseek-pet`，可新建/自选），用于存放对话记录，选择结果记忆下来。
-- **发送**：输入文字回车发送，聊天框收起，桌宠气泡显示「Deep diving...」。
-- **完成**：气泡显示「Completed」，聊天框重新展开展示回复。
-- **打断**：运行中右键「Deep diving」气泡 →「打断会话」（与右键桌宠的「更改配置/退出」菜单隔开）。
-- **新对话**：聊天框「＋新对话」另起一个会话（持久多轮，重启可续聊）。
-- **切换会话**：聊天框「对话」下拉列出当前工作区内的历史会话（标题来自 harness），可随时**进入某个具体聊天记录**继续查看/续聊；首项「＋新对话」回到新对话态。
-- **切换模型**：聊天框标题栏模型下拉（如 DeepSeek-V4-Pro / DeepSeek-V4-Flash）来自 harness 的模型目录（配置驱动，不硬编码）；切换只影响**下一次**新消息，不打断正在运行的回合；新对话继承当前所选模型；无可用模型时下拉显示「无可用模型」并禁用。
-- **完整记录**：聊天框底部「打开完整记录 ↗」→ 用浏览器打开 harness web 端查看完整会话。
-
-对话复用 harness 的会话/工作区能力，无需额外 API Key；协议经 `/api/pet.ws` 双向传输（内部走 `session.prompt` 的 POST 语义）。
-
-## 目录结构
-
-```
-harness-plugin/            # dsh-pet-status 插件（Cordis）
-  src/index.ts             # 状态广播 + 桌宠管理器 + HTTP API
-  settings.html            # 配置管理页（自包含）
-  package.json / README.md
-Deepseek/                  # 精灵素材（PixelLab 生成）
-  animations/              # 动作帧序列（<目录>/south/frame_NNN.png）
-  rotations/               # 8 方向立绘
-  raw/                     # 原始素材源（GIF 等）
-  metadata.json            # 素材元数据（PixelLab 导出清单）
-assets/fonts/              # 本地打包字体
-docs/                      # 文档
-  config.md                # 配置参考
-  development.md           # 开发者指南
-pet.config.json            # 控制逻辑：状态/动作/触发（v3）
-main.cjs / preload.cjs     # Electron 主进程 + 预加载（IPC 拖拽窗口 / 状态转发 / 双击开聊天）
-index.html / renderer.js   # 渲染层：透明画布 + 配置驱动的状态机 + 双击检测
-chat-window.cjs            # 聊天窗口管理（创建/显示/收起/展开/关闭）
-chat.html / chat-preload.cjs # 聊天框 UI + 桥接（发消息/新对话/打断/打开完整记录）
-scripts/
-  install.sh                 # macOS 一键安装：装插件 + 生成桌面 Seeki.app
-  install.ps1                # Windows 一键安装：装插件 + 生成桌面 Seeki.lnk
-  install-harness-plugin.sh  # 仅安装插件到 dsh web profile
-  normalize-animations.mjs   # 素材标准化脚本（gif 拆帧 + 校验 + 报告帧数）
+```mermaid
+flowchart TB
+    U[You] -->|double-click · type| P[Seeki Desktop UI<br/>Electron · transparent window · pixel sprite]
+    P -->|WebSocket /api/pet.ws| S[dsh-pet-status plugin<br/>inside DeepSeek Harness]
+    S -->|session.prompt · session.models| A[DeepSeek Harness Agent<br/>workspaces · sessions · tools]
+    A -->|provider route| M[DeepSeek Model Provider]
+    M --> A
+    A --> S -->|status · assistant text| P
 ```
 
-## 文档
+1. The **Electron pet** renders the character and the chat window.
+2. A small **Cordis plugin** (`dsh-pet-status`) runs inside DeepSeek Harness, folding agent activity into statuses and streaming assistant text over a local WebSocket.
+3. The harness **agent** handles sessions, workspaces, and tools; Seeki is its desktop face.
 
-- [配置参考](docs/config.md) — `pet.config.json` 的完整字段说明与示例；
-- [开发者指南](docs/development.md) — 架构、文件职责，以及添加动作 / 鼠标状态 / 拖拽方向的方法。
+Architecture and extension guide: [docs/development.md](./docs/development.md).
 
-## 素材声明
+---
 
-角色精灵素材（`Deepseek/` 下的像素图）由 [PixelLab](https://www.pixellab.ai/) 生成。素材版权与再分发条款请以 PixelLab 的授权说明为准。
+## Project Structure
 
-## 路线图
+```
+harness-plugin/     dsh-pet-status plugin — status broadcast, pet manager, chat bridge
+Deepseek/           pixel sprite assets (animations, 8-direction stills, raw sources)
+assets/             bundled font (and the generated launcher icon)
+docs/               config reference + developer guide
+scripts/            installers + sprite normalization
+pet.config.json     all pet behavior — statuses, actions, character states
+main.cjs            Electron main process (window, drag, WebSocket client)
+renderer.js         pixel sprite state machine (config-driven)
+chat.html           chat window UI (workspace, conversation, model switching)
+```
 
-- [x] 重构为 DeepSeek Harness 插件（随 `dsh web` 启动、纳入进程树管理）。
-- [x] 与 agent 状态联动（任务进行/完成/截止切换气泡与动画）。
-- [x] 可视化配置页（状态 / 角色状态 / 动作 / 帧管理，含上传与删除）。
-- [ ] 点击穿透（透明区域不拦截鼠标）。
-- [ ] 位置记忆、重力贴边、8 方向走路。
-- [ ] 桌宠输入 → harness 的上行交互（当前仅 harness → 桌宠下行）。
+---
+
+## Development
+
+```sh
+npm install
+npm start        # run the pet standalone (offline) while iterating on the UI
+```
+
+Pet behavior is entirely config-driven — editing `pet.config.json` (or using `/pet/settings`) changes bubbles, animations, and triggers without touching render code. See [docs/development.md](./docs/development.md) for how to add an action, a mouse state, or a drag direction.
+
+---
+
+## Roadmap
+
+- [x] Desktop pet (transparent always-on-top window, pixel state machine)
+- [x] Agent status reflection (`received` / `running` / `completed` / `terminated` / `offline`)
+- [x] Chat: workspaces, conversation history, model switching, cancel
+- [x] Visual settings page (statuses / actions / frame upload & delete)
+- [x] One-click desktop launcher (`Seeki.app` / `Seeki.lnk`)
+- [ ] Click-through (transparent areas don't capture the mouse)
+- [ ] Position memory, edge snapping, 8-direction walking
+- [ ] Standalone packaging (bundled harness runtime)
+
+---
+
+## Contributing
+
+Issues, feature requests, and pull requests are welcome.
+
+---
 
 ## License
 
 [MIT](./LICENSE) © 2026 BenjaminSHI4008
+
+Character sprite assets under `Deepseek/` were generated with [PixelLab](https://www.pixellab.ai/); redistribution terms are per PixelLab's license.
