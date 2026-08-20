@@ -8,7 +8,7 @@ const MIN_HEIGHT = 140 // 小气泡
 const MAX_HEIGHT = 440 // 大气泡（含尖角空间）
 const TAIL_SPACE = 16 // 底部尖角留白（chat.html body 的 padding-bottom）
 const HEAD_OFFSET = 22 // 桌宠头顶相对窗口顶部的近似偏移（精灵居中，头顶低于窗口顶部）
-const GAP = 6 // 气泡尖角到头顶的呼吸空间（小间距，不贴住）
+const GAP = 3 // 气泡尖角到头顶的呼吸空间（小间距，不贴住）
 
 class ChatWindow {
   constructor() {
