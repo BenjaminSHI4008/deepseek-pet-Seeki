@@ -9,7 +9,9 @@
     "received": {
       "text": "收到啦",
       "color": "#ffb74d",
-      "actions": []
+      "actions": [
+        "Get"
+      ]
     },
     "running": {
       "text": "Deep diving...",
@@ -62,6 +64,12 @@
         0,
         2
       ]
+    },
+    "Get": {
+      "label": "Get",
+      "fps": 9,
+      "folder": "Get",
+      "count": 9
     }
   },
   "statusActionMs": 2000,
@@ -83,7 +91,8 @@
         "left": {
           "play": [
             "walk"
-          ]
+          ],
+          "flipX": false
         },
         "right": {
           "play": [
@@ -92,10 +101,12 @@
           "flipX": true
         },
         "up": {
-          "play": []
+          "play": [],
+          "flipY": false
         },
         "down": {
-          "play": []
+          "play": [],
+          "flipY": false
         }
       },
       "returnTo": "idle"

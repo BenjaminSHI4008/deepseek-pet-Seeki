@@ -56,17 +56,17 @@
       border-bottom: 2px solid var(--strong);
       transform: translateX(-50%) rotate(45deg);
     }
-    /* 单行 Mini Toolbar */
+    /* 单行 Mini Toolbar（Environment 层：Workspace + Model + 窗口动作） */
     .titlebar {
-      display: flex; align-items: center; gap: 7px;
-      padding: 6px 10px; background: var(--pale); border-bottom: 1px solid var(--soft-2);
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 9px; background: var(--pale); border-bottom: 1px solid var(--soft-2);
       user-select: none; -webkit-app-region: drag;
     }
     .titlebar .t { font: 10px 'Press Start 2P', monospace; color: var(--primary); flex: none; }
     .titlebar .folder-icon { flex: none; display: block; }
     #folder-select {
-      flex: 1; min-width: 70px; max-width: 150px;
-      padding: 3px 6px; background: var(--offwhite); border: 1px solid var(--soft);
+      flex: 1; min-width: 64px; max-width: 118px;
+      padding: 2px 6px; background: var(--offwhite); border: 1px solid var(--soft);
       border-radius: 6px; color: var(--deep); outline: none;
       font: 12px -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
       text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
@@ -77,8 +77,8 @@
     #folder-select:focus { border-color: var(--primary); }
     .model-dot { flex: none; width: 6px; height: 6px; background: var(--primary); border-radius: 1px; margin-left: 2px; }
     #model-select {
-      flex: none; min-width: 60px; max-width: 120px;
-      padding: 3px 6px; background: var(--offwhite); border: 1px solid var(--soft);
+      flex: none; min-width: 56px; max-width: 102px;
+      padding: 2px 6px; background: var(--offwhite); border: 1px solid var(--soft);
       border-radius: 6px; color: var(--deep); outline: none;
       font: 12px -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
       text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
@@ -93,31 +93,67 @@
     .titlebar .close:hover { color: var(--danger); }
     .titlebar .action { cursor: pointer; color: var(--primary); font: 8px 'Press Start 2P', monospace; transition: color .15s; -webkit-app-region: no-drag; }
     .titlebar .action:hover { color: var(--primary-strong); }
-    /* 会话记录条：进入具体对话 */
-    .sessionbar { display: flex; align-items: center; gap: 7px; padding: 4px 10px; background: var(--offwhite); border-bottom: 1px solid var(--soft-2); user-select: none; -webkit-app-region: no-drag; }
-    .sessionbar .label { flex: none; font: 8px 'Press Start 2P', monospace; color: var(--muted); }
-    #session-select {
-      flex: 1; min-width: 0; padding: 3px 6px; background: var(--offwhite); border: 1px solid var(--soft);
-      border-radius: 6px; color: var(--deep); outline: none;
-      font: 12px -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
-      text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
-      transition: border-color .15s, background .15s;
-      -webkit-app-region: no-drag;
+    /* 会话导航条（Conversation 层）：辅助导航，弱于 Header，不是表单输入框 */
+    .sessionbar {
+      position: relative; display: flex; align-items: center; gap: 6px;
+      height: 22px; padding: 0 10px;
+      background: transparent; border-bottom: 1px solid var(--soft-2);
+      cursor: pointer; user-select: none; -webkit-app-region: no-drag;
+      transition: background .15s;
     }
-    #session-select:hover { background: var(--pale); }
-    #session-select:focus { border-color: var(--primary); }
-    #session-select:disabled { color: var(--muted); background: var(--pale); }
+    .sessionbar:hover, .sessionbar.open { background: var(--pale); }
+    .sessionbar:focus-visible { outline: 1px solid var(--primary); outline-offset: -1px; }
+    .sessionbar .chat-icon { flex: none; display: block; }
+    .sessionbar .session-name {
+      flex: 1; min-width: 0;
+      font: 12px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+      color: var(--deep); text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+    }
+    .sessionbar .session-name.empty { color: var(--muted); }
+    .sessionbar .session-arrow { flex: none; font-size: 8px; line-height: 1; color: var(--muted); transition: transform .15s; }
+    .sessionbar.open .session-arrow { transform: rotate(180deg); }
+    /* 会话下拉浮层：浮在消息区之上，不参与布局（不改变窗口高度） */
+    .session-menu {
+      position: absolute; top: calc(100% + 2px); left: 8px; right: 8px; z-index: 30;
+      display: flex; flex-direction: column; max-height: 220px;
+      background: var(--offwhite); border: 1px solid var(--soft); border-radius: 6px;
+      box-shadow: 0 4px 14px -4px rgba(31, 58, 92, .25);
+      overflow: hidden;
+    }
+    .session-menu[hidden] { display: none; }
+    .session-menu-head {
+      flex: none; padding: 4px 10px; border-bottom: 1px solid var(--soft-2);
+      font: 8px 'Press Start 2P', monospace; color: var(--muted);
+    }
+    .session-menu-list { flex: 1; overflow-y: auto; min-height: 0; }
+    .session-item {
+      display: flex; align-items: center; gap: 6px; padding: 5px 10px;
+      font: 12px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+      color: var(--deep); cursor: pointer; transition: background .12s;
+    }
+    .session-item:hover { background: var(--pale); }
+    .session-item.active { background: var(--pale); }
+    .session-item .check { flex: none; width: 12px; font-size: 10px; color: var(--primary); }
+    .session-item .check.hide { visibility: hidden; }
+    .session-item-title { flex: 1; min-width: 0; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+    .session-menu-divider { flex: none; height: 1px; background: var(--soft-2); }
+    .session-menu-new {
+      flex: none; padding: 5px 10px; background: none; border: none; text-align: left; cursor: pointer;
+      font: 12px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+      color: var(--primary); transition: background .12s, color .12s;
+    }
+    .session-menu-new:hover { background: var(--pale); color: var(--primary-strong); }
     /* 状态条：像素状态点 + 文字 */
     #status { font: 8px 'Press Start 2P', monospace; color: var(--muted); padding: 2px 10px; min-height: 0; }
     #status:not(:empty)::before { content: ''; display: inline-block; width: 4px; height: 4px; margin-right: 5px; background: currentColor; vertical-align: 1px; }
     #status.working { color: var(--primary); }
     #status.completed { color: var(--ok); }
     #status.error { color: var(--danger); }
-    /* 消息区 */
+    /* 消息区：顶部留少量呼吸空间，避免贴住会话导航条 */
     #messages {
       overflow-y: auto;
       max-height: 200px;
-      padding: 8px 10px;
+      padding: 14px 10px 10px;
       display: flex; flex-direction: column; gap: 7px;
     }
     .msg {
@@ -185,9 +221,23 @@
         <span class="close" id="close" title="关闭">✕</span>
       </span>
     </div>
-    <div class="sessionbar">
-      <span class="label">对话</span>
-      <select id="session-select" title="对话记录" disabled></select>
+    <div class="sessionbar" id="sessionbar" role="button" tabindex="0" title="当前对话，点击切换">
+      <svg class="chat-icon" width="13" height="12" viewBox="0 0 13 12" aria-hidden="true">
+        <rect x="0" y="0" width="11" height="9" style="fill: var(--primary)" />
+        <rect x="2" y="2" width="2" height="2" style="fill: var(--pale)" />
+        <rect x="5" y="2" width="2" height="2" style="fill: var(--pale)" />
+        <rect x="8" y="2" width="2" height="2" style="fill: var(--pale)" />
+        <rect x="3" y="9" width="3" height="1" style="fill: var(--primary)" />
+        <rect x="2" y="10" width="1" height="1" style="fill: var(--primary)" />
+      </svg>
+      <span class="session-name empty" id="session-name">新对话</span>
+      <span class="session-arrow" aria-hidden="true">▾</span>
+      <div class="session-menu" id="session-menu" hidden>
+        <div class="session-menu-head">最近对话</div>
+        <div class="session-menu-list" id="session-menu-list"></div>
+        <div class="session-menu-divider"></div>
+        <button class="session-menu-new" id="session-menu-new" type="button">＋ 新对话</button>
+      </div>
     </div>
     <div id="status"></div>
     <div id="messages"></div>
@@ -206,8 +256,11 @@
     const input = document.getElementById('input')
     const statusEl = document.getElementById('status')
     const folderSelect = document.getElementById('folder-select')
-    const sessionSelect = document.getElementById('session-select')
     const modelSelect = document.getElementById('model-select')
+    const sessionBar = document.getElementById('sessionbar')
+    const sessionName = document.getElementById('session-name')
+    const sessionMenu = document.getElementById('session-menu')
+    const sessionMenuList = document.getElementById('session-menu-list')
     let currentAssistant = null // 当前正在流式累积的 assistant 消息元素
 
     function append(role, text) {
@@ -260,22 +313,44 @@
       else if ((models || []).some((m) => (m.provider + '|' + m.model) === prev)) modelSelect.value = prev
     }
 
-    // 渲染会话下拉：首项固定「＋新对话」，其后为当前工作区内的历史对话（按工作区顺序）
+    // 渲染会话导航条 + 浮层列表：当前会话名为主信息，历史对话列在浮层中（当前项打 ✓）
     function renderSessions(sessions, currentId) {
-      const prev = sessionSelect.value
-      sessionSelect.innerHTML = ''
-      const addOpt = (value, text) => {
-        const opt = document.createElement('option')
-        opt.value = value
-        opt.textContent = text
-        sessionSelect.appendChild(opt)
+      const list = sessions || []
+      const current = list.find((s) => s.id === currentId)
+      sessionName.textContent = current ? (current.title || '（未命名对话）') : '新对话'
+      sessionName.classList.toggle('empty', !current)
+      sessionMenuList.innerHTML = ''
+      for (const s of list) {
+        const item = document.createElement('div')
+        item.className = 'session-item' + (s.id === currentId ? ' active' : '')
+        const check = document.createElement('span')
+        check.className = 'check' + (s.id === currentId ? '' : ' hide')
+        check.textContent = '✓'
+        const title = document.createElement('span')
+        title.className = 'session-item-title'
+        title.textContent = s.title || '（未命名对话）'
+        item.appendChild(check)
+        item.appendChild(title)
+        item.addEventListener('click', (e) => {
+          e.stopPropagation() // 避免冒泡到 sessionbar 触发 toggle
+          closeSessionMenu()
+          window.chatAPI.selectSession(s.id)
+        })
+        sessionMenuList.appendChild(item)
       }
-      addOpt('', '＋ 新对话')
-      for (const s of sessions || []) addOpt(s.id, s.title)
-      sessionSelect.disabled = false
-      if ((sessions || []).some((s) => s.id === currentId)) sessionSelect.value = currentId
-      else if (!currentId) sessionSelect.value = '' // 新对话态
-      else if ((sessions || []).some((s) => s.id === prev)) sessionSelect.value = prev
+    }
+
+    function openSessionMenu() {
+      sessionMenu.hidden = false
+      sessionBar.classList.add('open')
+      // 限制浮层高度不超过气泡可视范围（底部留尖角 + 外框边距），避免撑开/裁切；过长列表内部滚动
+      const rect = sessionBar.getBoundingClientRect()
+      const avail = window.innerHeight - rect.bottom - 24 // 16px 尖角 + 2px 外框 + 6px 呼吸
+      sessionMenu.style.maxHeight = Math.max(64, Math.min(220, avail)) + 'px'
+    }
+    function closeSessionMenu() {
+      sessionMenu.hidden = true
+      sessionBar.classList.remove('open')
     }
 
     function send() {
@@ -302,11 +377,26 @@
       if (!opt) return
       window.chatAPI.selectFolder(opt.value, opt.dataset.path)
     })
-    sessionSelect.addEventListener('change', () => {
-      const opt = sessionSelect.selectedOptions[0]
-      if (!opt) return
-      if (!opt.value) window.chatAPI.newConversation() // 「＋新对话」
-      else window.chatAPI.selectSession(opt.value) // 进入具体对话
+    sessionBar.addEventListener('click', () => {
+      if (sessionMenu.hidden) openSessionMenu()
+      else closeSessionMenu()
+    })
+    sessionBar.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return
+      e.preventDefault()
+      if (sessionMenu.hidden) openSessionMenu()
+      else closeSessionMenu()
+    })
+    document.getElementById('session-menu-new').addEventListener('click', (e) => {
+      e.stopPropagation()
+      closeSessionMenu()
+      window.chatAPI.newConversation() // 「＋新对话」
+    })
+    document.addEventListener('click', (e) => {
+      if (!sessionBar.contains(e.target)) closeSessionMenu() // 点击外部关闭
+    })
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSessionMenu()
     })
     modelSelect.addEventListener('change', () => {
       const opt = modelSelect.selectedOptions[0]
