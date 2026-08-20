@@ -7,7 +7,8 @@ const WIDTH = 300 // 气泡固定宽度
 const MIN_HEIGHT = 140 // 小气泡
 const MAX_HEIGHT = 440 // 大气泡（含尖角空间）
 const TAIL_SPACE = 16 // 底部尖角留白（chat.html body 的 padding-bottom）
-const GAP = 4 // 气泡底部与桌宠头顶的间距
+const HEAD_OFFSET = 22 // 桌宠头顶相对窗口顶部的近似偏移（精灵居中，头顶低于窗口顶部）
+const GAP = 6 // 气泡尖角到头顶的呼吸空间（小间距，不贴住）
 
 class ChatWindow {
   constructor() {
@@ -56,7 +57,9 @@ class ChatWindow {
     const petX = this.anchor ? this.anchor[0] : workAreaSize.width - 240 - 40
     const petY = this.anchor ? this.anchor[1] : workAreaSize.height - 240 - 40
     const x = Math.round(Math.min(Math.max(petX + 120 - w / 2, 0), workAreaSize.width - w))
-    const y = Math.round(Math.max(petY - h - GAP, 0))
+    // 锚定到桌宠头顶（petY + HEAD_OFFSET）而非窗口顶部，缩短视觉间距
+    const headY = petY + HEAD_OFFSET
+    const y = Math.round(Math.min(Math.max(headY - h - GAP, 0), workAreaSize.height - h))
     this.win.setPosition(x, y)
   }
 
