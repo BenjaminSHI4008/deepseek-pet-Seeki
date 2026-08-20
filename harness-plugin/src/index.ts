@@ -439,15 +439,24 @@ export function apply(ctx: Context, config: Config = {}): void {
     // force=true 供 /api/pet.start 幂等唤起；启动时的自动拉起仍尊重 autoStart。
     if (!force && !config.autoStart) return
     if (!petDir || petChild) return
-    const electronBin = path.join(petDir, 'node_modules', '.bin', 'electron')
+    // 直接用 process.execPath 跑 electron/cli.js，不依赖 PATH 上的 node——
+    // 桌面图标启动器以最小 PATH 拉起 harness，`#!/usr/bin/env node` 的 .bin/electron 符号链接会静默失败。
+    const electronCli = path.join(petDir, 'node_modules', 'electron', 'cli.js')
     const wsUrl = `ws://127.0.0.1:${String(ctx.webServer.port)}${pathname}`
-    petChild = spawn(electronBin, ['.'], {
+    const child = spawn(process.execPath, [electronCli, '.'], {
       cwd: petDir,
       // PET_MANAGED 标记「由插件拉起」，桌宠据此决定退出时是否回报 pet-shutdown。
       env: { ...process.env, PET_WS_URL: wsUrl, PET_MANAGED: '1' },
       stdio: 'ignore',
     })
-    petChild.on('error', (error) => { console.error('[pet-status] 拉起桌宠失败：', error) })
+    petChild = child
+    // 桌宠退出/崩溃后释放引用，否则 petChild 永远指向已死进程，/api/pet.start 再也无法唤起。
+    const release = (): void => { if (petChild === child) petChild = null }
+    child.on('error', (error) => { console.error('[pet-status] 拉起桌宠失败：', error); release() })
+    child.on('exit', (code) => {
+      if (code !== null && code !== 0) console.error(`[pet-status] 桌宠异常退出（code ${code}）`)
+      release()
+    })
   }
   const stopPet = (): void => {
     if (petChild) { petChild.kill(); petChild = null }

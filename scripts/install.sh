@@ -67,11 +67,14 @@ if [[ -f "$ICON_SRC" ]] && command -v sips >/dev/null 2>&1 && command -v iconuti
 fi
 
 # ── 4) 生成 Seeki.app（伪可执行文件：Info.plist + 启动脚本 + 图标）──────
+# 先在临时目录构建完整 .app，再尝试放桌面：macOS 对 ~/Desktop 有「deny delete」TCC 保护，
+# 直接 rm -rf 旧图标会报 Operation not permitted，故把「删除旧图标」做成尽力而为 + 友好提示。
 APP_DIR="$DESKTOP/Seeki.app"
-rm -rf "$APP_DIR"
-mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+TMP_ROOT="$(mktemp -d)"
+APP_SRC="$TMP_ROOT/Seeki.app"
+mkdir -p "$APP_SRC/Contents/MacOS" "$APP_SRC/Contents/Resources"
 
-cat > "$APP_DIR/Contents/Info.plist" <<'PLIST'
+cat > "$APP_SRC/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -90,7 +93,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<'PLIST'
 PLIST
 
 # 启动脚本：占位符随后由 sed 写入真实 node / harness / port 绝对路径
-cat > "$APP_DIR/Contents/MacOS/Seeki" <<'LAUNCH'
+cat > "$APP_SRC/Contents/MacOS/Seeki" <<'LAUNCH'
 #!/bin/bash
 # Seeki 桌宠启动器（由 install.sh 生成）
 set -u
@@ -104,9 +107,11 @@ CURL="/usr/bin/curl"
 is_up() { "$CURL" -sf -o /dev/null "http://127.0.0.1:${PORT}/"; }
 
 # harness 未运行 → 后台拉起（PET_LAUNCHER=1 让插件托管生命周期：桌宠退出即停 harness）
+# 同时把 node 所在目录补进 PATH：Finder 双击环境是「最小 PATH」，子进程 `env node` 会找不到 node。
 if ! is_up; then
   mkdir -p "${LOG_DIR}"
-  ( cd "${HARNESS_DIR}" && PET_LAUNCHER=1 nohup "${NODE}" --import tsx/esm apps/cli/src/bin.ts web --port "${PORT}" >>"${LOG}" 2>&1 & )
+  NODE_BIN_DIR="$(dirname "${NODE}")"
+  ( cd "${HARNESS_DIR}" && PATH="${NODE_BIN_DIR}:${PATH}" PET_LAUNCHER=1 nohup "${NODE}" --import tsx/esm apps/cli/src/bin.ts web --port "${PORT}" >>"${LOG}" 2>&1 & )
   for _ in $(seq 1 60); do is_up && break; sleep 1; done
 fi
 
@@ -118,17 +123,36 @@ sed -i '' \
   -e "s|__PORT__|${PORT}|" \
   -e "s|__NODE__|${NODE_BIN}|" \
   -e "s|__HARNESS_DIR__|${HARNESS_DIR}|" \
-  "$APP_DIR/Contents/MacOS/Seeki"
-chmod +x "$APP_DIR/Contents/MacOS/Seeki"
+  "$APP_SRC/Contents/MacOS/Seeki"
+chmod +x "$APP_SRC/Contents/MacOS/Seeki"
 
 if [[ -f "$ICNS" ]]; then
-  cp "$ICNS" "$APP_DIR/Contents/Resources/Seeki.icns"
+  cp "$ICNS" "$APP_SRC/Contents/Resources/Seeki.icns"
 fi
+
+# 把临时构建的 .app 安装到桌面；桌面受 TCC 保护时删除旧图标会失败 → 提示用户手动删，不中断。
+if [[ -e "$APP_DIR" ]]; then
+  if rm -rf "$APP_DIR" 2>/dev/null; then
+    cp -R "$APP_SRC" "$APP_DIR"
+    ICON_STATE="updated"
+  else
+    ICON_STATE="kept"
+  fi
+else
+  cp -R "$APP_SRC" "$APP_DIR"
+  ICON_STATE="created"
+fi
+rm -rf "$TMP_ROOT"
 
 echo ""
 echo "✅ 安装完成："
 echo "   插件：dsh-pet-status → ~/.dsh/profiles/web"
-echo "   桌面图标：${APP_DIR}（双击即后台拉起 harness 并唤起桌宠）"
+if [[ "$ICON_STATE" == "kept" ]]; then
+  echo "   桌面图标：${APP_DIR}（已保留旧图标，仍可正常使用）"
+  echo "   ⚠️  macOS 桌面保护禁止自动删除旧图标，如需更新请手动把 ${APP_DIR} 拖入废纸篓后重跑本脚本。"
+else
+  echo "   桌面图标：${APP_DIR}（双击即后台拉起 harness 并唤起桌宠）"
+fi
 echo "   harness：${HARNESS_DIR}（端口 ${PORT}）"
 echo ""
 has_key() {

@@ -103,6 +103,7 @@ $launcher = @"
 `$ErrorActionPreference = 'SilentlyContinue'
 `$PORT = if (`$env:PET_PORT) { `$env:PET_PORT } else { '$Port' }
 `$NODE = '$($node.Source)'
+`$env:PATH = (Split-Path `$NODE -Parent) + ';' + `$env:PATH
 `$HARNESS_DIR = '$HarnessDir'
 `$LOG_DIR = Join-Path `$env:USERPROFILE '.dsh\logs'
 `$LOG = Join-Path `$LOG_DIR 'pet-harness.log'
