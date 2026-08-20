@@ -50,8 +50,8 @@ export const Config: z<Config> = z.object({
   stopWithPet: z.boolean(),
 })
 
-/** 桌宠活动状态（任务维度，对应 statuses 里的 running/completed/terminated）。 */
-export type PetStatus = 'running' | 'completed' | 'terminated'
+/** 桌宠活动状态（任务维度，对应 statuses 里的 received/running/completed/terminated）。 */
+export type PetStatus = 'received' | 'running' | 'completed' | 'terminated'
 
 /** 读取请求体为 UTF-8 文本。 */
 function readBody(req: IncomingMessage): Promise<string> {
@@ -104,10 +104,12 @@ class ChatService {
   private currentModel: { provider: string; model: string } | null = null
   private readonly api: ApiProxy
   private readonly emit: (msg: Record<string, unknown>) => void
+  private readonly onPromptAccepted?: () => void
 
-  constructor(api: ApiProxy, emit: (msg: Record<string, unknown>) => void) {
+  constructor(api: ApiProxy, emit: (msg: Record<string, unknown>) => void, onPromptAccepted?: () => void) {
     this.api = api
     this.emit = emit
+    this.onPromptAccepted = onPromptAccepted
   }
 
   /** 列出所有工作区（对话文件夹），返回 {id, title, path}。 */
@@ -121,6 +123,35 @@ class ChatService {
   async emitFolders(): Promise<void> {
     const folders = await this.listFolders()
     this.emit({ type: 'chat-folders', folders, currentId: this.workspaceId })
+  }
+
+  /** 列出某工作区下的会话（按工作区 sessionIds 顺序），返回 {id, title, updatedAt}。 */
+  async listSessions(workspaceId: string): Promise<Array<{ id: string; title: string; updatedAt: number }>> {
+    const [listRes, wsRes] = await Promise.all([
+      this.api.sessions.list({ rpcId: RpcId(randomUUID()), payload: {} }),
+      this.api.workspace.list({ rpcId: RpcId(randomUUID()), payload: {} }),
+    ])
+    if (!listRes.result.ok || !wsRes.result.ok) return []
+    const ws = wsRes.result.value.items.find((w) => String(w.workspaceId) === workspaceId)
+    const ordered = ws?.sessionIds ?? []
+    const byId = new Map(listRes.result.value.items.map((i) => [String(i.sessionId), i]))
+    return ordered.map((sid, i) => {
+      const it = byId.get(String(sid))
+      const proj = it?.projections?.values as { title?: string | null } | undefined
+      const title = typeof proj?.title === 'string' && proj.title ? proj.title : ''
+      return {
+        id: String(sid),
+        title: title || (it?.blank ? '新对话' : `对话 ${i + 1}`),
+        updatedAt: it?.updatedAt ?? 0,
+      }
+    })
+  }
+
+  /** 广播当前工作区的会话列表 + 当前选中会话 id。 */
+  async emitSessions(): Promise<void> {
+    if (!this.workspaceId) { this.emit({ type: 'chat-sessions', sessions: [], currentId: null }); return }
+    const sessions = await this.listSessions(this.workspaceId)
+    this.emit({ type: 'chat-sessions', sessions, currentId: this.sessionId })
   }
 
   /** 列出可用模型目录（来自 harness llm.models，非硬编码），返回 {provider, model, name, description}。 */
@@ -198,22 +229,27 @@ class ChatService {
     return this.workspaceId
   }
 
-  /** 切换到某文件夹：加载其最近会话历史并广播。 */
+  /** 切换到某文件夹：广播其会话列表，并默认进入最近会话（attach prepend：第一个最新）。 */
   async selectFolder(workspaceId: string): Promise<void> {
     this.workspaceId = workspaceId
     this.sessionId = null
-    const res = await this.api.workspace.list({ rpcId: RpcId(randomUUID()), payload: {} })
-    let messages: Array<{ role: string; text: string }> = []
-    if (res.result.ok) {
-      const ws = res.result.value.items.find((w) => String(w.workspaceId) === workspaceId)
-      const sessions = ws?.sessionIds ?? []
-      if (sessions.length > 0) {
-        this.sessionId = String(sessions[0]) // attach prepend：第一个是最新会话
-        messages = await this.readHistory(this.sessionId)
-      }
-    }
-    this.emit({ type: 'chat-history', messages })
     await this.emitFolders()
+    const sessions = await this.listSessions(workspaceId)
+    this.emit({ type: 'chat-sessions', sessions, currentId: null })
+    if (sessions.length > 0) await this.selectSession(sessions[0].id)
+    else {
+      this.emit({ type: 'chat-history', messages: [] })
+      await this.readCurrentModel()
+      await this.emitModels()
+    }
+  }
+
+  /** 进入某个具体会话：加载其历史并广播（会话选择器切换 / 文件夹默认进入最近会话）。 */
+  async selectSession(sessionId: string): Promise<void> {
+    this.sessionId = sessionId
+    const messages = await this.readHistory(sessionId)
+    this.emit({ type: 'chat-history', messages })
+    await this.emitSessions()
     await this.readCurrentModel() // 恢复该会话的模型
     await this.emitModels()
   }
@@ -249,6 +285,7 @@ class ChatService {
         payload: { sessionId: this.sessionId, provider: this.currentModel.provider, model: this.currentModel.model },
       })
     }
+    void this.emitSessions() // 新会话已创建，刷新会话下拉
     return this.sessionId
   }
 
@@ -260,6 +297,7 @@ class ChatService {
         payload: { sessionId, mode: 'queue', content: [{ type: 'text', text }] },
       })
       if (!res.result.ok) throw new Error(`prompt 失败：${res.result.error.code}`)
+      this.onPromptAccepted?.() // 通知 apply：收到发送 → 桌宠进入 received（收到啦）
       this.emit({ type: 'chat-started' })
     } catch (error) {
       this.emit({ type: 'chat-error', message: String(error) })
@@ -269,6 +307,7 @@ class ChatService {
   /** 另起新对话：下次 send 会用新会话（当前文件夹内）。 */
   newConversation(): void {
     this.sessionId = null
+    void this.emitSessions() // currentId=null → 前端回到「新对话」态
   }
 
   async cancel(): Promise<void> {
@@ -308,11 +347,14 @@ export function apply(ctx: Context, config: Config = {}): void {
   const running = new Set<string>()
   // 最近一次 turn 是否以 error/aborted 结束（报错 / 手动停止）。
   let terminated = false
+  // 刚收到发送、agent 尚未进入 running：短暂显示「收到啦」。
+  let received = false
   // running 归零后延迟一拍再广播，等 mux 流的 turn/end 先到（两个流投递顺序不保证）。
   let endedTimer: ReturnType<typeof setTimeout> | null = null
 
   const current = (): PetStatus => {
     if (running.size > 0) return 'running'
+    if (received) return 'received'
     return terminated ? 'terminated' : 'completed'
   }
   const send = (msg: Record<string, unknown>): void => {
@@ -328,7 +370,16 @@ export function apply(ctx: Context, config: Config = {}): void {
   const launcherManaged = process.env.PET_LAUNCHER === '1'
   const stopWithPet = launcherManaged ? config.stopWithPet !== false : config.stopWithPet === true
   // 聊天服务：桥接桌宠 ↔ harness 会话（复用同一条 WS）
-  const chat = new ChatService(ctx.apiProxy, send)
+  const chat = new ChatService(ctx.apiProxy, send, () => {
+    // 收到发送：进入 received；若 agent 已在运行则不动（避免打断 running）。
+    if (running.size > 0) return
+    received = true
+    broadcast()
+    // 兜底：agent 迟迟未进入 running（异常）时 3s 后回落，避免「收到啦」常驻。
+    setTimeout(() => {
+      if (received && running.size === 0) { received = false; broadcast() }
+    }, 3000)
+  })
   const scheduleEnded = (): void => {
     if (endedTimer) clearTimeout(endedTimer)
     endedTimer = setTimeout(() => {
@@ -353,6 +404,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         if (event.type !== 'turn/end') continue
         const kind = event.data.reason.kind
         terminated = kind === 'error' || kind === 'aborted'
+        received = false // turn 结束即离开「收到啦」
       }
     })().catch(() => {})
 
@@ -363,6 +415,7 @@ export function apply(ctx: Context, config: Config = {}): void {
           if (payload.running) {
             running.add(payload.sessionId)
             terminated = false
+            received = false // 进入 running，离开「收到啦」
             if (endedTimer) { clearTimeout(endedTimer); endedTimer = null }
             broadcast()
           } else {
@@ -393,10 +446,11 @@ export function apply(ctx: Context, config: Config = {}): void {
         ws.on('error', () => clients.delete(ws))
         ws.on('message', (data) => {
           try {
-            const msg = JSON.parse(data.toString()) as { type?: string; text?: string; workspacePath?: string; workspaceId?: string; provider?: string; model?: string }
+            const msg = JSON.parse(data.toString()) as { type?: string; text?: string; workspacePath?: string; workspaceId?: string; sessionId?: string; provider?: string; model?: string }
             if (msg.type === 'chat-init') void chat.init(msg.workspacePath ?? '')
             else if (msg.type === 'chat') void chat.send(msg.text ?? '')
             else if (msg.type === 'chat-select-folder') void chat.selectFolder(msg.workspaceId ?? '')
+            else if (msg.type === 'chat-select-session') void chat.selectSession(msg.sessionId ?? '')
             else if (msg.type === 'chat-select-model') void chat.selectModel(msg.provider ?? '', msg.model ?? '')
             else if (msg.type === 'chat-new') chat.newConversation()
             else if (msg.type === 'chat-cancel') void chat.cancel()

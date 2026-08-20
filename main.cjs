@@ -106,6 +106,11 @@ ipcMain.on('chat-select-folder', (_e, { id, path }) => {
     ws.send(JSON.stringify({ type: 'chat-select-folder', workspaceId: id }))
   }
 })
+ipcMain.on('chat-select-session', (_e, { sessionId }) => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'chat-select-session', sessionId }))
+  }
+})
 ipcMain.on('chat-select-model', (_e, { provider, model }) => {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'chat-select-model', provider, model }))

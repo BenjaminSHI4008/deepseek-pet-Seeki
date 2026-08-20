@@ -216,6 +216,12 @@ function renderStatus() {
     bubble.className = 'show'
     bubble.style.pointerEvents = 'auto'
     bubbleWasWorking = true
+  } else if (status === 'received') {
+    // 收到发送：进入 running 前的短暂提示（不改 bubbleWasWorking，让后续 Completed 正常闪烁）
+    bubble.textContent = s.text
+    bubble.style.color = s.color
+    bubble.className = 'show'
+    bubble.style.pointerEvents = 'none'
   } else if (status === 'completed' || status === 'terminated') {
     // 任务结束：短暂闪一下结果气泡
     if (bubbleWasWorking) {

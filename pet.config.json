@@ -6,6 +6,11 @@
     "wsUrl": "ws://127.0.0.1:3080/api/pet.ws"
   },
   "statuses": {
+    "received": {
+      "text": "收到啦",
+      "color": "#ffb74d",
+      "actions": []
+    },
     "running": {
       "text": "Deep diving...",
       "color": "#4fc3f7",
