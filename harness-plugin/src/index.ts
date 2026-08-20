@@ -37,17 +37,12 @@ export interface Config {
   petDir?: string
   /** 启动时自动拉起桌宠。 */
   autoStart?: boolean
-  /** 桌宠退出时是否连带停止 harness（仅桌面图标启动器托管时生效，见 apply 内 stopWithPet 推导）。 */
-  stopWithPet?: boolean
 }
 
 export const Config: z<Config> = z.object({
   path: z.string().default('/api/pet.ws'),
   petDir: z.string().default(''),
   autoStart: z.boolean().default(false),
-  // 无 default 即可选（schemastery 无 .optional()，缺省字段本身就可空）：
-  // 由 apply 按「是否启动器托管」推导（启动器默认退即停，手动默认常驻）。
-  stopWithPet: z.boolean(),
 })
 
 /** 桌宠活动状态（任务维度，对应 statuses 里的 received/running/completed/terminated）。 */
@@ -364,12 +359,8 @@ export function apply(ctx: Context, config: Config = {}): void {
     }
   }
   const broadcast = (): void => send({ type: 'status', status: current() })
-  // 生命周期：桌宠退出是否连带停止 harness。
-  // 桌面图标启动器用 PET_LAUNCHER=1 拉起 → 默认「退出即停」；手动 pnpm dsh web → 默认「保留后台」，
-  // 两者都可经 cordis 配置的 stopWithPet 显式覆盖。
-  const launcherManaged = process.env.PET_LAUNCHER === '1'
-  const stopWithPet = launcherManaged ? config.stopWithPet !== false : config.stopWithPet === true
-  // 聊天服务：桥接桌宠 ↔ harness 会话（复用同一条 WS）
+  // 聊天服务：桥接桌宠 ↔ harness 会话（复用同一条 WS）。
+  // 桌宠退出不影响 harness（harness 常驻后台）；唤醒桌宠时才由启动器拉起 harness。
   const chat = new ChatService(ctx.apiProxy, send, () => {
     // 收到发送：进入 received；若 agent 已在运行则不动（避免打断 running）。
     if (running.size > 0) return
@@ -454,11 +445,6 @@ export function apply(ctx: Context, config: Config = {}): void {
             else if (msg.type === 'chat-select-model') void chat.selectModel(msg.provider ?? '', msg.model ?? '')
             else if (msg.type === 'chat-new') chat.newConversation()
             else if (msg.type === 'chat-cancel') void chat.cancel()
-            else if (msg.type === 'pet-shutdown' && stopWithPet) {
-              // 桌宠退出 → 连带停止 harness（仅启动器托管/显式配置时）。
-              stopPet()
-              setTimeout(() => process.exit(0), 30)
-            }
           } catch {
             // 非 JSON 消息忽略
           }
@@ -499,16 +485,17 @@ export function apply(ctx: Context, config: Config = {}): void {
     const wsUrl = `ws://127.0.0.1:${String(ctx.webServer.port)}${pathname}`
     const child = spawn(process.execPath, [electronCli, '.'], {
       cwd: petDir,
-      // PET_MANAGED 标记「由插件拉起」，桌宠据此决定退出时是否回报 pet-shutdown。
-      env: { ...process.env, PET_WS_URL: wsUrl, PET_MANAGED: '1' },
+      env: { ...process.env, PET_WS_URL: wsUrl },
       stdio: 'ignore',
     })
     petChild = child
     // 桌宠退出/崩溃后释放引用，否则 petChild 永远指向已死进程，/api/pet.start 再也无法唤起。
     const release = (): void => { if (petChild === child) petChild = null }
     child.on('error', (error) => { console.error('[pet-status] 拉起桌宠失败：', error); release() })
-    child.on('exit', (code) => {
-      if (code !== null && code !== 0) console.error(`[pet-status] 桌宠异常退出（code ${code}）`)
+    child.on('exit', (code, signal) => {
+      // 区分「被信号终止」（stopPet 正常重启/停止）与「自身异常退出」（崩溃）。
+      if (signal) console.error(`[pet-status] 桌宠被信号 ${signal} 终止`)
+      else if (code !== null && code !== 0) console.error(`[pet-status] 桌宠退出（code ${code}）`)
       release()
     })
   }

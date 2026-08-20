@@ -232,17 +232,9 @@ function createWindow() {
 
 app.whenReady().then(createWindow)
 app.on('window-all-closed', () => app.quit())
-// 桌宠退出：若由插件拉起（PET_MANAGED），先回报 pet-shutdown 让启动器托管的 harness 一并退出。
-let shutdownSent = false
-app.on('before-quit', (event) => {
+// 桌宠退出：仅清理自身资源，不影响后台 harness（harness 常驻，由启动器按需唤起）。
+app.on('before-quit', () => {
   if (reconnectTimer) clearTimeout(reconnectTimer)
-  chatWindow.close()
-  if (process.env.PET_MANAGED === '1' && ws && ws.readyState === WebSocket.OPEN && !shutdownSent) {
-    shutdownSent = true
-    event.preventDefault()
-    ws.send(JSON.stringify({ type: 'pet-shutdown' }))
-    setTimeout(() => app.quit(), 100) // 留一拍让消息送达插件
-    return
-  }
   if (ws) ws.terminate()
+  chatWindow.close()
 })
