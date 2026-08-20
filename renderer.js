@@ -198,7 +198,12 @@ function triggerStatusAction(actions) {
 }
 function playAction(action) {
   setState(action)
-  statusActionTimer = setTimeout(() => { if (state === action) setState(defaultAction) }, STATUS_ACTION_MS)
+  // 状态触发动作至少播完整一轮（intro+loop），避免新动作帧多/帧率低时被固定 2s 截断。
+  const a = ACTIONS[action]
+  const frameCount = a ? (a.intro.length + a.loop.length) : 0
+  const loopMs = a && a.fps > 0 ? Math.round((frameCount / a.fps) * 1000) : 0
+  const dur = Math.max(STATUS_ACTION_MS, loopMs)
+  statusActionTimer = setTimeout(() => { if (state === action) setState(defaultAction) }, dur)
 }
 
 function renderStatus() {
@@ -217,11 +222,13 @@ function renderStatus() {
     bubble.style.pointerEvents = 'auto'
     bubbleWasWorking = true
   } else if (status === 'received') {
-    // 收到发送：进入 running 前的短暂提示（不改 bubbleWasWorking，让后续 Completed 正常闪烁）
+    // 收到发送：进入 running 前的短暂提示 + 播放「收到」动作（如 Get）。
+    // 不改 bubbleWasWorking，让后续 Completed 正常闪烁。
     bubble.textContent = s.text
     bubble.style.color = s.color
     bubble.className = 'show'
     bubble.style.pointerEvents = 'none'
+    if (Array.isArray(s.actions) && s.actions.length > 0) triggerStatusAction(s.actions)
   } else if (status === 'completed' || status === 'terminated') {
     // 任务结束：短暂闪一下结果气泡
     if (bubbleWasWorking) {
