@@ -104,6 +104,30 @@ class ChatService {
     this.emit = emit
   }
 
+  /** 列出所有工作区（对话文件夹），返回 {id, title, path}。 */
+  async listFolders(): Promise<Array<{ id: string; title: string; path: string }>> {
+    const res = await this.api.workspace.list({ rpcId: RpcId(randomUUID()), payload: {} })
+    if (!res.result.ok) return []
+    return res.result.value.items.map((w) => ({ id: String(w.workspaceId), title: w.title, path: w.path }))
+  }
+
+  /** 广播文件夹列表 + 当前选中 id。 */
+  async emitFolders(): Promise<void> {
+    const folders = await this.listFolders()
+    this.emit({ type: 'chat-folders', folders, currentId: this.workspaceId })
+  }
+
+  /** 初始化：用桌宠记住的目录路径解析/创建工作区作为默认文件夹，并加载其历史。 */
+  async init(workspacePath: string): Promise<void> {
+    try {
+      if (workspacePath) await this.ensureWorkspace(workspacePath)
+    } catch {
+      // 路径失效等情况：仍广播列表，让用户手动选择
+    }
+    if (this.workspaceId) await this.selectFolder(this.workspaceId) // 加载当前文件夹历史 + 广播列表
+    else await this.emitFolders()
+  }
+
   /** 确保工作区存在（幂等）：换工作区则顺带重置会话。 */
   async ensureWorkspace(path: string): Promise<string> {
     if (this.workspaceId && this.workspacePath === path) return this.workspaceId
@@ -115,18 +139,54 @@ class ChatService {
     return this.workspaceId
   }
 
-  async ensureSession(workspacePath: string): Promise<string> {
+  /** 切换到某文件夹：加载其最近会话历史并广播。 */
+  async selectFolder(workspaceId: string): Promise<void> {
+    this.workspaceId = workspaceId
+    this.sessionId = null
+    const res = await this.api.workspace.list({ rpcId: RpcId(randomUUID()), payload: {} })
+    let messages: Array<{ role: string; text: string }> = []
+    if (res.result.ok) {
+      const ws = res.result.value.items.find((w) => String(w.workspaceId) === workspaceId)
+      const sessions = ws?.sessionIds ?? []
+      if (sessions.length > 0) {
+        this.sessionId = String(sessions[0]) // attach prepend：第一个是最新会话
+        messages = await this.readHistory(this.sessionId)
+      }
+    }
+    this.emit({ type: 'chat-history', messages })
+    await this.emitFolders()
+  }
+
+  /** 读取某会话历史，折叠成 user/assistant 文本消息序列。 */
+  async readHistory(sessionId: string): Promise<Array<{ role: string; text: string }>> {
+    const res = await this.api.sessions.history({ rpcId: RpcId(randomUUID()), payload: { sessionId } })
+    if (!res.result.ok) return []
+    const messages: Array<{ role: string; text: string }> = []
+    for (const entry of res.result.value.events) {
+      const event = entry.event
+      if (event.type === 'user/message') {
+        const text = extractText(event.data)
+        if (text) messages.push({ role: 'user', text })
+      } else if (event.type === 'assistant/message') {
+        const text = extractText((event.data as { message?: unknown }).message)
+        if (text) messages.push({ role: 'assistant', text })
+      }
+    }
+    return messages
+  }
+
+  async ensureSession(): Promise<string> {
     if (this.sessionId) return this.sessionId
-    const workspaceId = await this.ensureWorkspace(workspacePath)
-    const res = await this.api.sessions.create({ rpcId: RpcId(randomUUID()), payload: { workspaceId } })
+    if (!this.workspaceId) throw new Error('未选择对话文件夹')
+    const res = await this.api.sessions.create({ rpcId: RpcId(randomUUID()), payload: { workspaceId: this.workspaceId } })
     if (!res.result.ok) throw new Error(`会话创建失败：${res.result.error.code}`)
     this.sessionId = String(res.result.value.sessionId)
     return this.sessionId
   }
 
-  async send(text: string, workspacePath: string): Promise<void> {
+  async send(text: string): Promise<void> {
     try {
-      const sessionId = await this.ensureSession(workspacePath)
+      const sessionId = await this.ensureSession()
       const res = await this.api.sessions.prompt({
         rpcId: RpcId(randomUUID()),
         payload: { sessionId, mode: 'queue', content: [{ type: 'text', text }] },
@@ -138,7 +198,7 @@ class ChatService {
     }
   }
 
-  /** 另起新对话：下次 send 会用新会话（同一工作区内）。 */
+  /** 另起新对话：下次 send 会用新会话（当前文件夹内）。 */
   newConversation(): void {
     this.sessionId = null
   }
@@ -260,8 +320,10 @@ export function apply(ctx: Context, config: Config = {}): void {
         ws.on('error', () => clients.delete(ws))
         ws.on('message', (data) => {
           try {
-            const msg = JSON.parse(data.toString()) as { type?: string; text?: string; workspacePath?: string }
-            if (msg.type === 'chat') void chat.send(msg.text ?? '', msg.workspacePath ?? '')
+            const msg = JSON.parse(data.toString()) as { type?: string; text?: string; workspacePath?: string; workspaceId?: string }
+            if (msg.type === 'chat-init') void chat.init(msg.workspacePath ?? '')
+            else if (msg.type === 'chat') void chat.send(msg.text ?? '')
+            else if (msg.type === 'chat-select-folder') void chat.selectFolder(msg.workspaceId ?? '')
             else if (msg.type === 'chat-new') chat.newConversation()
             else if (msg.type === 'chat-cancel') void chat.cancel()
           } catch {

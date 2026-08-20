@@ -71,16 +71,29 @@ ipcMain.handle('pet-get-status', () => latestStatus)
 
 // ── 聊天框 ───────────────────────────────────────────────────────────
 ipcMain.handle('pet-open-chat', () => {
-  if (!ensureWorkspace()) return // 用户取消选择工作区，则不打开聊天框
+  const workspacePath = ensureWorkspace()
+  if (!workspacePath) return // 用户取消选择工作区，则不打开聊天框
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'chat-init', workspacePath })) // 让插件解析默认文件夹并广播列表
+  }
   const pos = mainWindow && !mainWindow.isDestroyed() ? mainWindow.getPosition() : null
   chatWindow.show(pos)
 })
 ipcMain.on('chat-close', () => chatWindow.close())
 ipcMain.on('chat-send', (_e, text) => {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'chat', text, workspacePath: chatConfig.workspacePath }))
+    ws.send(JSON.stringify({ type: 'chat', text }))
   }
   chatWindow.hide() // 输入后收起聊天框，转由桌宠气泡显示 Deep diving
+})
+ipcMain.on('chat-select-folder', (_e, { id, path }) => {
+  if (path) {
+    chatConfig.workspacePath = path // 记忆选中的文件夹
+    saveChatConfig()
+  }
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'chat-select-folder', workspaceId: id }))
+  }
 })
 ipcMain.on('chat-new', () => {
   if (ws && ws.readyState === WebSocket.OPEN) {

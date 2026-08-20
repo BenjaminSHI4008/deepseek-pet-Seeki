@@ -51,6 +51,18 @@
     .titlebar .close:hover { color: #ff5252; }
     .titlebar .action { cursor: pointer; color: var(--accent); font: 9px 'Press Start 2P', monospace; margin-right: 12px; -webkit-app-region: no-drag; }
     .titlebar .action:hover { opacity: .8; }
+    .folderbar {
+      display: flex; align-items: center; gap: 7px;
+      padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--panel);
+      -webkit-app-region: no-drag;
+    }
+    .folderbar .folder-icon { font-size: 12px; line-height: 1; }
+    #folder-select {
+      flex: 1; padding: 5px 8px; background: #121218; border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); outline: none;
+      font: 12px -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+    }
+    #folder-select:focus { border-color: var(--accent); }
     #status { font: 9px 'Press Start 2P', monospace; color: var(--muted); padding: 5px 12px; border-bottom: 1px solid var(--border); min-height: 18px; }
     #status.working { color: var(--accent); }
     #status.completed { color: #7ed957; }
@@ -94,6 +106,10 @@
         <span class="close" id="close" title="关闭">✕</span>
       </span>
     </div>
+    <div class="folderbar">
+      <span class="folder-icon">📁</span>
+      <select id="folder-select" title="对话文件夹"></select>
+    </div>
     <div id="status"></div>
     <div id="messages"></div>
     <div class="inputbar">
@@ -110,6 +126,7 @@
     const messages = document.getElementById('messages')
     const input = document.getElementById('input')
     const statusEl = document.getElementById('status')
+    const folderSelect = document.getElementById('folder-select')
     let currentAssistant = null // 当前正在流式累积的 assistant 消息元素
 
     function append(role, text) {
@@ -119,6 +136,21 @@
       messages.appendChild(el)
       messages.scrollTop = messages.scrollHeight
       return el
+    }
+
+    // 渲染对话文件夹下拉（folder 名称来自 harness workspace，不硬编码）
+    function renderFolders(folders, currentId) {
+      const prev = folderSelect.value
+      folderSelect.innerHTML = ''
+      for (const f of folders || []) {
+        const opt = document.createElement('option')
+        opt.value = f.id
+        opt.dataset.path = f.path
+        opt.textContent = f.title
+        folderSelect.appendChild(opt)
+      }
+      if ((folders || []).some((f) => f.id === currentId)) folderSelect.value = currentId
+      else if ((folders || []).some((f) => f.id === prev)) folderSelect.value = prev
     }
 
     function send() {
@@ -140,6 +172,11 @@
       statusEl.className = ''
       window.chatAPI.newConversation()
     })
+    folderSelect.addEventListener('change', () => {
+      const opt = folderSelect.selectedOptions[0]
+      if (!opt) return
+      window.chatAPI.selectFolder(opt.value, opt.dataset.path)
+    })
 
     // 气泡尺寸随内容自适应：观测气泡高度上报主进程，由主进程调整窗口大小（底部锚定桌宠）
     const bubble = document.querySelector('.bubble')
@@ -147,9 +184,15 @@
       window.chatAPI.resize(bubble.offsetHeight)
     }).observe(bubble)
 
-    // 接收流式回复与状态（chat-started / chat-delta / chat-message / chat-done）
+    // 接收流式回复与状态（chat-folders / chat-history / chat-started / chat-delta / chat-message / chat-done）
     window.chatAPI.onEvent((msg) => {
-      if (msg.type === 'chat-started') {
+      if (msg.type === 'chat-folders') {
+        renderFolders(msg.folders, msg.currentId)
+      } else if (msg.type === 'chat-history') {
+        messages.innerHTML = '' // 切换到某文件夹后展示其历史
+        currentAssistant = null
+        for (const m of msg.messages || []) append(m.role, m.text)
+      } else if (msg.type === 'chat-started') {
         currentAssistant = append('assistant', '') // 开新一轮，清空旧累积
         statusEl.textContent = 'Deep diving...'
         statusEl.className = 'working'
