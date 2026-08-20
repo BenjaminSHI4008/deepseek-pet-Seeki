@@ -348,8 +348,9 @@ export function apply(ctx: Context, config: Config = {}): void {
   let endedTimer: ReturnType<typeof setTimeout> | null = null
 
   const current = (): PetStatus => {
-    if (running.size > 0) return 'running'
+    // received 优先于 running：每次「收到发送」都给一个短暂反馈（即使正在运行也短暂覆盖 Deep diving）。
     if (received) return 'received'
+    if (running.size > 0) return 'running'
     return terminated ? 'terminated' : 'completed'
   }
   const send = (msg: Record<string, unknown>): void => {
@@ -362,13 +363,12 @@ export function apply(ctx: Context, config: Config = {}): void {
   // 聊天服务：桥接桌宠 ↔ harness 会话（复用同一条 WS）。
   // 桌宠退出不影响 harness（harness 常驻后台）；唤醒桌宠时才由启动器拉起 harness。
   const chat = new ChatService(ctx.apiProxy, send, () => {
-    // 收到发送：进入 received；若 agent 已在运行则不动（避免打断 running）。
-    if (running.size > 0) return
+    // 每次「收到发送」都进入 received（短暂覆盖 running），给「收到啦 + 动作」反馈。
     received = true
     broadcast()
-    // 兜底：agent 迟迟未进入 running（异常）时 3s 后回落，避免「收到啦」常驻。
+    // 兜底：3s 后回落（若 agent 已进入 running 会由 host 事件提前清掉 received）。
     setTimeout(() => {
-      if (received && running.size === 0) { received = false; broadcast() }
+      if (received) { received = false; broadcast() }
     }, 3000)
   })
   const scheduleEnded = (): void => {
