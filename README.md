@@ -1,6 +1,6 @@
 # DeepSeek Pet
 
-> 一个基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的**桌面宠物（桌宠）插件**：透明、无边框、置顶的像素风角色悬浮在桌面上，跟随 agent 任务状态实时切换动画与头顶气泡。
+> 一个基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的**桌面宠物（桌宠）插件**：透明、无边框、置顶的像素风角色悬浮在桌面上，跟随 agent 任务状态实时切换动画与头顶气泡。角色名：**Seeki**。
 
 ## 项目定位
 

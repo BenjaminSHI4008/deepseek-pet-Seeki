@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "character": "Deepseek",
+  "character": "Seeki",
   "direction": "south",
   "server": {
     "wsUrl": "ws://127.0.0.1:3080/api/pet.ws"
