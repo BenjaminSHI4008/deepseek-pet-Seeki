@@ -96,6 +96,7 @@ class ChatService {
   private sessionId: string | null = null
   private workspacePath: string | null = null
   private workspaceId: string | null = null
+  private currentModel: { provider: string; model: string } | null = null
   private readonly api: ApiProxy
   private readonly emit: (msg: Record<string, unknown>) => void
 
@@ -117,6 +118,59 @@ class ChatService {
     this.emit({ type: 'chat-folders', folders, currentId: this.workspaceId })
   }
 
+  /** 列出可用模型目录（来自 harness llm.models，非硬编码），返回 {provider, model, name, description}。 */
+  async listModels(): Promise<Array<{ provider: string; model: string; name: string; description?: string }>> {
+    const res = await this.api.llm.models({ rpcId: RpcId(randomUUID()), payload: {} })
+    if (!res.result.ok) return []
+    const models: Array<{ provider: string; model: string; name: string; description?: string }> = []
+    for (const group of res.result.value.groups) {
+      for (const m of group.models) {
+        models.push({ provider: group.id, model: m.id, name: m.name, description: m.description })
+      }
+    }
+    return models
+  }
+
+  /** 广播模型目录 + 当前选中模型。 */
+  async emitModels(): Promise<void> {
+    const models = await this.listModels()
+    this.emit({ type: 'chat-models', models, current: this.currentModel })
+  }
+
+  /** 回读会话当前模型（会话属性，重开会话可恢复）。 */
+  async readCurrentModel(): Promise<void> {
+    if (!this.sessionId) { this.currentModel = null; return }
+    try {
+      const res = await this.api.sessions.models({ rpcId: RpcId(randomUUID()), payload: { sessionId: this.sessionId } })
+      if (res.result.ok) {
+        this.currentModel = { provider: res.result.value.current.provider, model: res.result.value.current.model }
+      }
+    } catch {
+      this.currentModel = null
+    }
+  }
+
+  /** 切换模型（会话属性，仅影响下一次新请求；无会话则暂存，创建会话后应用）。 */
+  async selectModel(provider: string, model: string): Promise<void> {
+    const prev = this.currentModel
+    this.currentModel = { provider, model }
+    if (this.sessionId) {
+      try {
+        const res = await this.api.sessions.selectModel({
+          rpcId: RpcId(randomUUID()),
+          payload: { sessionId: this.sessionId, provider, model },
+        })
+        if (!res.result.ok) throw new Error(res.result.error.code)
+      } catch (error) {
+        this.currentModel = prev // 失败回退原模型
+        this.emit({ type: 'chat-error', message: `无法切换模型，请检查模型配置（${String(error)}）` })
+        await this.emitModels()
+        return
+      }
+    }
+    await this.emitModels()
+  }
+
   /** 初始化：用桌宠记住的目录路径解析/创建工作区作为默认文件夹，并加载其历史。 */
   async init(workspacePath: string): Promise<void> {
     try {
@@ -125,7 +179,7 @@ class ChatService {
       // 路径失效等情况：仍广播列表，让用户手动选择
     }
     if (this.workspaceId) await this.selectFolder(this.workspaceId) // 加载当前文件夹历史 + 广播列表
-    else await this.emitFolders()
+    else { await this.emitFolders(); await this.emitModels() }
   }
 
   /** 确保工作区存在（幂等）：换工作区则顺带重置会话。 */
@@ -155,6 +209,8 @@ class ChatService {
     }
     this.emit({ type: 'chat-history', messages })
     await this.emitFolders()
+    await this.readCurrentModel() // 恢复该会话的模型
+    await this.emitModels()
   }
 
   /** 读取某会话历史，折叠成 user/assistant 文本消息序列。 */
@@ -181,6 +237,13 @@ class ChatService {
     const res = await this.api.sessions.create({ rpcId: RpcId(randomUUID()), payload: { workspaceId: this.workspaceId } })
     if (!res.result.ok) throw new Error(`会话创建失败：${res.result.error.code}`)
     this.sessionId = String(res.result.value.sessionId)
+    // 应用当前选中的模型（继承自当前会话/上次选择）
+    if (this.currentModel) {
+      await this.api.sessions.selectModel({
+        rpcId: RpcId(randomUUID()),
+        payload: { sessionId: this.sessionId, provider: this.currentModel.provider, model: this.currentModel.model },
+      })
+    }
     return this.sessionId
   }
 
@@ -320,10 +383,11 @@ export function apply(ctx: Context, config: Config = {}): void {
         ws.on('error', () => clients.delete(ws))
         ws.on('message', (data) => {
           try {
-            const msg = JSON.parse(data.toString()) as { type?: string; text?: string; workspacePath?: string; workspaceId?: string }
+            const msg = JSON.parse(data.toString()) as { type?: string; text?: string; workspacePath?: string; workspaceId?: string; provider?: string; model?: string }
             if (msg.type === 'chat-init') void chat.init(msg.workspacePath ?? '')
             else if (msg.type === 'chat') void chat.send(msg.text ?? '')
             else if (msg.type === 'chat-select-folder') void chat.selectFolder(msg.workspaceId ?? '')
+            else if (msg.type === 'chat-select-model') void chat.selectModel(msg.provider ?? '', msg.model ?? '')
             else if (msg.type === 'chat-new') chat.newConversation()
             else if (msg.type === 'chat-cancel') void chat.cancel()
           } catch {

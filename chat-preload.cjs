@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('chatAPI', {
   cancel: () => ipcRenderer.send('chat-cancel'),
   newConversation: () => ipcRenderer.send('chat-new'),
   selectFolder: (id, path) => ipcRenderer.send('chat-select-folder', { id, path }),
+  selectModel: (provider, model) => ipcRenderer.send('chat-select-model', { provider, model }),
   openWeb: () => ipcRenderer.send('chat-open-web'),
   resize: (height) => ipcRenderer.send('chat-resize', height),
   close: () => ipcRenderer.send('chat-close'),

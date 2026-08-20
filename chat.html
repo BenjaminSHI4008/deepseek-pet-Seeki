@@ -75,6 +75,19 @@
     }
     #folder-select:hover { background: var(--pale); }
     #folder-select:focus { border-color: var(--primary); }
+    .model-dot { flex: none; width: 6px; height: 6px; background: var(--primary); border-radius: 1px; margin-left: 2px; }
+    #model-select {
+      flex: none; min-width: 60px; max-width: 120px;
+      padding: 3px 6px; background: var(--offwhite); border: 1px solid var(--soft);
+      border-radius: 6px; color: var(--deep); outline: none;
+      font: 12px -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+      text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+      transition: border-color .15s, background .15s;
+      -webkit-app-region: no-drag;
+    }
+    #model-select:hover { background: var(--pale); }
+    #model-select:focus { border-color: var(--primary); }
+    #model-select:disabled { color: var(--muted); background: var(--pale); }
     .titlebar .actions { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; -webkit-app-region: no-drag; }
     .titlebar .close { cursor: pointer; color: var(--muted); font-size: 13px; padding: 0 2px; transition: color .15s; -webkit-app-region: no-drag; }
     .titlebar .close:hover { color: var(--danger); }
@@ -85,6 +98,7 @@
     #status:not(:empty)::before { content: ''; display: inline-block; width: 4px; height: 4px; margin-right: 5px; background: currentColor; vertical-align: 1px; }
     #status.working { color: var(--primary); }
     #status.completed { color: var(--ok); }
+    #status.error { color: var(--danger); }
     /* 消息区 */
     #messages {
       overflow-y: auto;
@@ -150,6 +164,8 @@
         <rect x="1" y="4" width="13" height="1" style="fill: var(--pale)" />
       </svg>
       <select id="folder-select" title="对话文件夹"></select>
+      <span class="model-dot" title="模型"></span>
+      <select id="model-select" title="模型" disabled></select>
       <span class="actions">
         <span class="action" id="new" title="新对话">＋新对话</span>
         <span class="close" id="close" title="关闭">✕</span>
@@ -172,6 +188,7 @@
     const input = document.getElementById('input')
     const statusEl = document.getElementById('status')
     const folderSelect = document.getElementById('folder-select')
+    const modelSelect = document.getElementById('model-select')
     let currentAssistant = null // 当前正在流式累积的 assistant 消息元素
 
     function append(role, text) {
@@ -198,6 +215,32 @@
       else if ((folders || []).some((f) => f.id === prev)) folderSelect.value = prev
     }
 
+    // 渲染模型下拉（模型来自 harness llm.models，配置驱动，不硬编码）
+    function renderModels(models, current) {
+      const prev = modelSelect.value
+      modelSelect.innerHTML = ''
+      for (const m of models || []) {
+        const opt = document.createElement('option')
+        opt.value = m.provider + '|' + m.model
+        opt.dataset.provider = m.provider
+        opt.dataset.model = m.model
+        opt.textContent = m.name
+        modelSelect.appendChild(opt)
+      }
+      modelSelect.disabled = (models || []).length === 0
+      if ((models || []).length === 0) {
+        const opt = document.createElement('option')
+        opt.value = ''
+        opt.textContent = '无可用模型'
+        modelSelect.appendChild(opt)
+        modelSelect.value = ''
+        return
+      }
+      const key = current ? (current.provider + '|' + current.model) : ''
+      if ((models || []).some((m) => (m.provider + '|' + m.model) === key)) modelSelect.value = key
+      else if ((models || []).some((m) => (m.provider + '|' + m.model) === prev)) modelSelect.value = prev
+    }
+
     function send() {
       const text = input.value.trim()
       if (!text) return
@@ -222,6 +265,11 @@
       if (!opt) return
       window.chatAPI.selectFolder(opt.value, opt.dataset.path)
     })
+    modelSelect.addEventListener('change', () => {
+      const opt = modelSelect.selectedOptions[0]
+      if (!opt || !opt.dataset.provider || !opt.dataset.model) return
+      window.chatAPI.selectModel(opt.dataset.provider, opt.dataset.model)
+    })
 
     // 气泡尺寸随内容自适应：观测气泡高度上报主进程，由主进程调整窗口大小（底部锚定桌宠）
     const bubble = document.querySelector('.bubble')
@@ -233,6 +281,8 @@
     window.chatAPI.onEvent((msg) => {
       if (msg.type === 'chat-folders') {
         renderFolders(msg.folders, msg.currentId)
+      } else if (msg.type === 'chat-models') {
+        renderModels(msg.models, msg.current)
       } else if (msg.type === 'chat-history') {
         messages.innerHTML = '' // 切换到某文件夹后展示其历史
         currentAssistant = null
@@ -253,6 +303,9 @@
         statusEl.textContent = 'Completed'
         statusEl.className = 'completed'
         currentAssistant = null
+      } else if (msg.type === 'chat-error') {
+        statusEl.textContent = msg.message || '出错了'
+        statusEl.className = 'error'
       }
     })
   </script>
