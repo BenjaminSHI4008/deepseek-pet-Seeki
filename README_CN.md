@@ -11,7 +11,7 @@ Seeki 是一只会悬浮在桌面上的像素小精灵，让 [DeepSeek Harness](
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#参与贡献)
 
-<img src="./docs/screenshots/hero.png" width="440" alt="Seeki — 桌面宠物 + 聊天窗口" />
+<img src="./Deepseek/rotations/south.png" width="128" alt="Seeki — 站姿" />
 
 </div>
 

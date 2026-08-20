@@ -11,7 +11,7 @@ Seeki is a pixel pet that floats on your desktop and keeps a [DeepSeek Harness](
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
-<img src="./docs/screenshots/hero.png" width="440" alt="Seeki — desktop pet + chat window" />
+<img src="./Deepseek/rotations/south.png" width="128" alt="Seeki — standing pose" />
 
 </div>
 
