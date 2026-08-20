@@ -5,7 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>DeepSeek 桌宠对话</title>
   <style>
-    :root { --bg: #141419; --panel: #1d1d24; --border: #2e2e38; --text: #e8e8ee; --muted: #9a9aa6; --accent: #4fc3f7; }
+    :root {
+      --bg: #fbfdff;            /* 气泡主体：近白 */
+      --panel: #eef4fb;         /* 栏区：极浅蓝 */
+      --border: #c3d6ee;        /* 分割线：浅蓝 */
+      --border-strong: #8fb3e0; /* 气泡边框：蓝 */
+      --text: #17324f;          /* 正文：深蓝 */
+      --muted: #647a92;         /* 次要：灰蓝 */
+      --accent: #3b82f6;        /* 强调蓝 */
+      --ok: #16a34a;            /* 完成状态：绿 */
+    }
     * { box-sizing: border-box; }
     @font-face {
       font-family: 'Press Start 2P';
@@ -26,29 +35,32 @@
       60% { transform: scale(1.03); opacity: 1; }
       to { transform: scale(1); opacity: 1; }
     }
-    /* 圆角气泡本体：随内容自适应，消息区超出上限时内部滚动 */
+    /* 圆角气泡本体：白底 + 蓝色像素边框，轻微阶梯圆角，浅阴影 + 顶部像素高光 */
     .bubble {
       display: flex; flex-direction: column;
-      background: var(--bg); border: 3px solid var(--border); border-radius: 14px;
+      background: var(--bg);
+      border: 2px solid var(--border-strong);
+      border-radius: 10px;
+      box-shadow: 0 3px 12px -4px rgba(30, 70, 140, .22), inset 0 1px 0 rgba(255, 255, 255, .85);
       overflow: hidden;
     }
-    /* 尖角：与气泡融为一体的朝下尖角（微信/漫画对话框式） */
+    /* 尖角：与气泡同风格（白底 + 蓝色边） */
     .tail {
       position: absolute; left: 50%; bottom: 8px;
       width: 15px; height: 15px;
       background: var(--bg);
-      border-right: 3px solid var(--border);
-      border-bottom: 3px solid var(--border);
+      border-right: 2px solid var(--border-strong);
+      border-bottom: 2px solid var(--border-strong);
       transform: translateX(-50%) rotate(45deg);
     }
     .titlebar {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 9px 12px; background: var(--panel); border-bottom: 2px solid var(--border);
+      padding: 9px 12px; background: var(--panel); border-bottom: 1px solid var(--border);
       user-select: none; -webkit-app-region: drag;
     }
-    .titlebar .t { font: 10px 'Press Start 2P', monospace; }
+    .titlebar .t { font: 10px 'Press Start 2P', monospace; color: var(--accent); }
     .titlebar .close { cursor: pointer; color: var(--muted); font-size: 14px; padding: 0 4px; -webkit-app-region: no-drag; }
-    .titlebar .close:hover { color: #ff5252; }
+    .titlebar .close:hover { color: #ef4444; }
     .titlebar .action { cursor: pointer; color: var(--accent); font: 9px 'Press Start 2P', monospace; margin-right: 12px; -webkit-app-region: no-drag; }
     .titlebar .action:hover { opacity: .8; }
     .folderbar {
@@ -58,14 +70,14 @@
     }
     .folderbar .folder-icon { font-size: 12px; line-height: 1; }
     #folder-select {
-      flex: 1; padding: 5px 8px; background: #121218; border: 1px solid var(--border);
+      flex: 1; padding: 5px 8px; background: #ffffff; border: 1px solid var(--border);
       border-radius: 6px; color: var(--text); outline: none;
       font: 12px -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
     }
     #folder-select:focus { border-color: var(--accent); }
     #status { font: 9px 'Press Start 2P', monospace; color: var(--muted); padding: 5px 12px; border-bottom: 1px solid var(--border); min-height: 18px; }
     #status.working { color: var(--accent); }
-    #status.completed { color: #7ed957; }
+    #status.completed { color: var(--ok); }
     /* 消息区：随内容伸缩，超上限滚动；正文用系统字体，中英混排协调、长英文可换行 */
     #messages {
       overflow-y: auto;
@@ -80,17 +92,17 @@
       color: var(--text);
       word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap;
     }
-    .msg.user { align-self: flex-end; background: #2a4a66; color: #eaf6ff; }
-    .msg.assistant { align-self: flex-start; background: var(--panel); border: 1px solid var(--border); }
+    .msg.user { align-self: flex-end; background: var(--accent); color: #ffffff; }
+    .msg.assistant { align-self: flex-start; background: #ffffff; border: 1px solid var(--border); color: var(--text); }
     .msg.placeholder { color: var(--muted); font-size: 12px; border: 1px dashed var(--border); }
-    .inputbar { display: flex; gap: 8px; padding: 9px 12px; border-top: 2px solid var(--border); background: var(--panel); }
+    .inputbar { display: flex; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--border); background: var(--panel); }
     #input {
-      flex: 1; padding: 7px 10px; background: #121218; border: 1px solid var(--border);
+      flex: 1; padding: 7px 10px; background: #ffffff; border: 1px solid var(--border);
       border-radius: 6px; color: var(--text); outline: none;
       font: 13px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
     }
     #input:focus { border-color: var(--accent); }
-    #send { padding: 8px 13px; background: var(--accent); color: #04141d; border: none; border-radius: 6px; font: 10px 'Press Start 2P', monospace; cursor: pointer; }
+    #send { padding: 8px 13px; background: var(--accent); color: #ffffff; border: none; border-radius: 6px; font: 10px 'Press Start 2P', monospace; cursor: pointer; }
     #send:hover { opacity: .9; }
     .footer { padding: 7px 12px; border-top: 1px solid var(--border); background: var(--panel); text-align: center; }
     .footer .link { cursor: pointer; color: var(--accent); font: 9px 'Press Start 2P', monospace; }
