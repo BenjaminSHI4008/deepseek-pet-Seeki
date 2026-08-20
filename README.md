@@ -55,7 +55,26 @@
 
 ## 快速开始
 
-### 方式一：随 DeepSeek Harness 启动（推荐）
+### 方式〇：桌面快捷组件（一键安装，双击启动，推荐）
+
+一条命令完成「装插件 + 在桌面生成一个伪可执行图标」。双击图标即**后台拉起 deepseek-harness 并唤起桌宠**（无终端、无浏览器窗口）：
+
+```sh
+cd <deepseek-pet>
+bash scripts/install.sh        # macOS：生成桌面 Seeki.app
+```
+
+```powershell
+# Windows（PowerShell）：生成桌面 Seeki.lnk
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+```
+
+- 脚本会把插件装进 `~/.dsh/profiles/web`，并在桌面生成 `Seeki.app`（macOS）/ `Seeki.lnk`（Windows）——它们只是**内置启动指令的伪可执行文件**，不含打包产物。
+- 图标内部指令 = 后台运行 `dsh web --port 3080`（可用 `PET_PORT` 改端口）+ 幂等唤起桌宠；脚本会自动定位 harness 仓库与 node。
+- **生命周期**：由启动器拉起的 harness 默认「退出桌宠即停 harness」（`PET_LAUNCHER=1` + `stopWithPet`）；如需常驻后台，把插件配置的 `stopWithPet` 设为 `false`。
+- **退出**：右键桌宠 →「退出桌宠」。
+
+### 方式一：随 DeepSeek Harness 启动（手动）
 
 1. 安装插件到 dsh web profile：
 
@@ -161,8 +180,10 @@ index.html / renderer.js   # 渲染层：透明画布 + 配置驱动的状态机
 chat-window.cjs            # 聊天窗口管理（创建/显示/收起/展开/关闭）
 chat.html / chat-preload.cjs # 聊天框 UI + 桥接（发消息/新对话/打断/打开完整记录）
 scripts/
-  install-harness-plugin.sh # 一键安装插件到 dsh web profile
-  normalize-animations.mjs  # 素材标准化脚本（gif 拆帧 + 校验 + 报告帧数）
+  install.sh                 # macOS 一键安装：装插件 + 生成桌面 Seeki.app
+  install.ps1                # Windows 一键安装：装插件 + 生成桌面 Seeki.lnk
+  install-harness-plugin.sh  # 仅安装插件到 dsh web profile
+  normalize-animations.mjs   # 素材标准化脚本（gif 拆帧 + 校验 + 报告帧数）
 ```
 
 ## 文档

@@ -37,12 +37,17 @@ export interface Config {
   petDir?: string
   /** 启动时自动拉起桌宠。 */
   autoStart?: boolean
+  /** 桌宠退出时是否连带停止 harness（仅桌面图标启动器托管时生效，见 apply 内 stopWithPet 推导）。 */
+  stopWithPet?: boolean
 }
 
 export const Config: z<Config> = z.object({
   path: z.string().default('/api/pet.ws'),
   petDir: z.string().default(''),
   autoStart: z.boolean().default(false),
+  // 无 default 即可选（schemastery 无 .optional()，缺省字段本身就可空）：
+  // 由 apply 按「是否启动器托管」推导（启动器默认退即停，手动默认常驻）。
+  stopWithPet: z.boolean(),
 })
 
 /** 桌宠活动状态（任务维度，对应 statuses 里的 running/completed/terminated）。 */
@@ -317,6 +322,11 @@ export function apply(ctx: Context, config: Config = {}): void {
     }
   }
   const broadcast = (): void => send({ type: 'status', status: current() })
+  // 生命周期：桌宠退出是否连带停止 harness。
+  // 桌面图标启动器用 PET_LAUNCHER=1 拉起 → 默认「退出即停」；手动 pnpm dsh web → 默认「保留后台」，
+  // 两者都可经 cordis 配置的 stopWithPet 显式覆盖。
+  const launcherManaged = process.env.PET_LAUNCHER === '1'
+  const stopWithPet = launcherManaged ? config.stopWithPet !== false : config.stopWithPet === true
   // 聊天服务：桥接桌宠 ↔ harness 会话（复用同一条 WS）
   const chat = new ChatService(ctx.apiProxy, send)
   const scheduleEnded = (): void => {
@@ -390,6 +400,11 @@ export function apply(ctx: Context, config: Config = {}): void {
             else if (msg.type === 'chat-select-model') void chat.selectModel(msg.provider ?? '', msg.model ?? '')
             else if (msg.type === 'chat-new') chat.newConversation()
             else if (msg.type === 'chat-cancel') void chat.cancel()
+            else if (msg.type === 'pet-shutdown' && stopWithPet) {
+              // 桌宠退出 → 连带停止 harness（仅启动器托管/显式配置时）。
+              stopPet()
+              setTimeout(() => process.exit(0), 30)
+            }
           } catch {
             // 非 JSON 消息忽略
           }
@@ -420,13 +435,16 @@ export function apply(ctx: Context, config: Config = {}): void {
   const writeConfig = async (cfg: unknown): Promise<void> => {
     await writeFile(configFile, JSON.stringify(cfg, null, 2) + '\n')
   }
-  const startPet = (): void => {
-    if (!config.autoStart || !petDir || petChild) return
+  const startPet = (force = false): void => {
+    // force=true 供 /api/pet.start 幂等唤起；启动时的自动拉起仍尊重 autoStart。
+    if (!force && !config.autoStart) return
+    if (!petDir || petChild) return
     const electronBin = path.join(petDir, 'node_modules', '.bin', 'electron')
     const wsUrl = `ws://127.0.0.1:${String(ctx.webServer.port)}${pathname}`
     petChild = spawn(electronBin, ['.'], {
       cwd: petDir,
-      env: { ...process.env, PET_WS_URL: wsUrl },
+      // PET_MANAGED 标记「由插件拉起」，桌宠据此决定退出时是否回报 pet-shutdown。
+      env: { ...process.env, PET_WS_URL: wsUrl, PET_MANAGED: '1' },
       stdio: 'ignore',
     })
     petChild.on('error', (error) => { console.error('[pet-status] 拉起桌宠失败：', error) })
@@ -546,6 +564,17 @@ export function apply(ctx: Context, config: Config = {}): void {
         }
       },
     }), 'pet-status: frames preview')
+
+    // 幂等唤起桌宠（桌面图标启动器调用；已在运行则 no-op）
+    ctx.effect(() => ctx.webServer.register({
+      kind: 'exact',
+      path: '/api/pet.start',
+      handler: (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'POST') { res.writeHead(405); res.end(); return }
+        startPet(true)
+        json(res, 200, { ok: true })
+      },
+    }), 'pet-status: pet start')
 
     // 重启桌宠（帧/配置改动后热生效）
     ctx.effect(() => ctx.webServer.register({

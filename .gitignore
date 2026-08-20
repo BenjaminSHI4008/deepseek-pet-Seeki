@@ -14,3 +14,7 @@ dist/
 
 # 日志
 *.log
+
+# 桌宠启动器安装时生成的图标
+assets/Seeki.icns
+assets/Seeki.ico

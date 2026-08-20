@@ -3,7 +3,8 @@
 # 用法：bash scripts/install-harness-plugin.sh
 set -euo pipefail
 
-PET_REPO="${PET_REPO:-$HOME/Projects/deepseek-pet}"
+# 默认取本脚本所在仓库（scripts/ 的上一级），避免写死 ~/Projects/deepseek-pet。
+PET_REPO="${PET_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PROFILE_ROOT="${DSH_HOME:-$HOME/.dsh}/profiles"
 WEB_DIR="$PROFILE_ROOT/web"
 NM_DIR="$PROFILE_ROOT/node_modules"
