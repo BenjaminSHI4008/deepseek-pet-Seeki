@@ -8,6 +8,6 @@ contextBridge.exposeInMainWorld('petAPI', {
     ipcRenderer.on('pet-status', (_event, status) => callback(status))
   },
   getStatus: () => ipcRenderer.invoke('pet-get-status'),
-  openChat: () => ipcRenderer.invoke('pet-open-chat'),
+  toggleChat: () => ipcRenderer.invoke('pet-toggle-chat'),
   cancelChat: () => ipcRenderer.send('pet-cancel-chat'),
 })

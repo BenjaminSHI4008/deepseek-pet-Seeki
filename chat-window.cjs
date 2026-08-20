@@ -20,6 +20,10 @@ class ChatWindow {
     return !!this.win && !this.win.isDestroyed()
   }
 
+  get isVisible() {
+    return this.isOpen && this.win.isVisible()
+  }
+
   // 打开（已存在则聚焦）。anchor 为桌宠窗口位置 [x, y]
   show(anchor) {
     if (this.isOpen) {

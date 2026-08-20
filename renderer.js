@@ -300,7 +300,7 @@ window.addEventListener('mouseup', () => {
     setState(CS.drag.returnTo) // 松开 → 状态末
   } else if (dragging && !moved) {
     if (doubleClick.isDoubleClick()) {
-      window.petAPI.openChat() // 双击 → 打开聊天框
+      window.petAPI.toggleChat() // 双击 → 呼出/收回聊天框
     } else if (downState === defaultAction && state === defaultAction) {
       // 单击（待机时）→ 随机播放点击动作，片刻后回状态末
       const action = pickPlay(CS.click.play)

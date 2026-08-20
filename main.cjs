@@ -70,7 +70,18 @@ function pushStatus(status) {
 ipcMain.handle('pet-get-status', () => latestStatus)
 
 // ── 聊天框 ───────────────────────────────────────────────────────────
-ipcMain.handle('pet-open-chat', () => {
+ipcMain.handle('pet-toggle-chat', () => {
+  // 双击收回：聊天框可见时收起（保留会话，再次双击可展开）
+  if (chatWindow.isVisible) {
+    chatWindow.hide()
+    return
+  }
+  // 双击呼出：之前收起过（如发送后转 Deep diving）则直接展开
+  if (chatWindow.isOpen) {
+    chatWindow.reveal()
+    return
+  }
+  // 首次呼出：先选工作区
   const workspacePath = ensureWorkspace()
   if (!workspacePath) return // 用户取消选择工作区，则不打开聊天框
   if (ws && ws.readyState === WebSocket.OPEN) {
