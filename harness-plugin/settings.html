@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>桌宠配置</title>
+  <title>Seeki 行为编辑器</title>
   <style>
     :root {
       --blue-600: #2563eb;
       --blue-500: #3b82f6;
-      --sky-400: #38bdf8;
       --ink-900: #0f172a;
       --ink-700: #334155;
       --ink-500: #64748b;
       --ink-400: #94a3b8;
       --line: rgba(100, 116, 139, .16);
+      --line-strong: rgba(100, 116, 139, .26);
       --card: #ffffff;
       --primary: #3b82f6;
       --primary-strong: #2563eb;
@@ -21,334 +21,272 @@
       --danger: #ef4444;
       --danger-soft: #fee2e2;
       --success: #16a34a;
-      --radius-lg: 18px;
-      --radius-md: 12px;
-      --radius-sm: 9px;
-      --shadow-xs: 0 1px 2px rgba(15, 23, 42, .04);
-      --shadow-sm: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 20px rgba(15, 23, 42, .06);
-      --shadow-md: 0 2px 4px rgba(15, 23, 42, .05), 0 16px 40px rgba(15, 23, 42, .08);
+      --warn: #d97706;
+      --warn-soft: #fef3c7;
+      --radius-lg: 16px;
+      --radius-md: 11px;
+      --radius-sm: 8px;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, .05), 0 8px 20px rgba(15, 23, 42, .06);
       --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei", sans-serif;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
     body {
       color: var(--ink-900);
-      font: 14px/1.65 var(--font);
-      min-height: 100vh;
-      background:
-        radial-gradient(1000px 520px at 88% -8%, rgba(56, 189, 248, .16), transparent 60%),
-        radial-gradient(820px 480px at -6% 18%, rgba(96, 165, 250, .14), transparent 58%),
-        radial-gradient(720px 460px at 50% 112%, rgba(251, 211, 141, .12), transparent 55%),
-        linear-gradient(180deg, #f3f8ff 0%, #fdfbf7 46%, #f1f6ff 100%);
+      font: 14px/1.6 var(--font);
+      background: #f2f6fb;
       -webkit-font-smoothing: antialiased;
-      padding-bottom: 96px;
     }
-    /* 氛围层：极淡光斑，仅作背景 */
-    .bg-decor { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-    .blob { position: absolute; border-radius: 50%; }
-    .blob-1 { width: 460px; height: 460px; top: -140px; right: -100px; background: radial-gradient(circle, rgba(191, 219, 254, .55), transparent 66%); animation: drift 20s ease-in-out infinite alternate; }
-    .blob-2 { width: 400px; height: 400px; bottom: -140px; left: -110px; background: radial-gradient(circle, rgba(253, 230, 138, .4), transparent 66%); animation: drift 26s ease-in-out infinite alternate-reverse; }
-    @keyframes drift { from { transform: translate(0, 0); } to { transform: translate(34px, -22px); } }
 
-    .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 40px 22px 32px; }
-
-    /* ── 头部 Hero ── */
-    .hero { display: flex; align-items: center; gap: 24px; padding: 8px 4px 32px; }
-    .hero-avatar {
-      position: relative; width: 96px; height: 96px; flex: none; border-radius: 50%;
-      background: radial-gradient(120% 120% at 30% 18%, #dbeafe, #eef6ff 58%, #fef9c3 130%);
-      box-shadow: 0 14px 34px rgba(59, 130, 246, .22), inset 0 0 0 1px rgba(255, 255, 255, .75);
-      display: grid; place-items: center;
-      animation: floaty 5.5s ease-in-out infinite;
+    /* ── 顶部 Header（sticky）── */
+    .topbar {
+      position: sticky; top: 0; z-index: 60;
+      background: rgba(255, 255, 255, .92); backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
     }
-    .hero-avatar::after {
-      content: ''; position: absolute; inset: -8px; border-radius: 50%;
-      box-shadow: 0 0 0 6px rgba(59, 130, 246, .06), 0 0 32px rgba(59, 130, 246, .12);
+    .topbar-inner {
+      max-width: 1240px; margin: 0 auto; padding: 12px 24px;
+      display: flex; align-items: center; gap: 14px;
     }
-    .hero-avatar img { width: 76px; height: 76px; image-rendering: pixelated; object-fit: contain; }
-    .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; color: var(--blue-600); text-transform: uppercase; }
-    .hero h1 { font-size: 28px; font-weight: 700; letter-spacing: .5px; margin: 4px 0 6px; }
-    .hero .sub { font-size: 14px; color: var(--ink-500); margin: 0 0 14px; }
-    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
-    .tag { font-size: 12px; color: var(--ink-500); background: rgba(255, 255, 255, .78); border: 1px solid var(--line); padding: 4px 12px; border-radius: 999px; }
-    @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-
-    /* ── 卡片 ── */
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 22px 24px; margin-bottom: 18px; }
-    .card-head { display: flex; align-items: center; gap: 13px; margin-bottom: 18px; }
-    .card-icon { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; font-size: 19px; }
-    .card-icon.c-blue { background: #eaf2ff; }
-    .card-icon.c-sky { background: #e0f5ff; }
-    .card-icon.c-amber { background: #fff4d6; }
-    .card-icon.c-green { background: #e6f7ef; }
-    .card-head h2 { font-size: 16px; font-weight: 700; margin: 0; }
-    .card-head .card-desc { font-size: 12.5px; color: var(--ink-500); margin: 2px 0 0; }
-
-    /* ── 表格 ── */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; font-size: 12px; font-weight: 600; color: var(--ink-400); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-    td { padding: 10px; border-bottom: 1px solid rgba(100, 116, 139, .08); vertical-align: middle; }
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr { transition: background .15s; }
-    tbody tr:hover { background: rgba(59, 130, 246, .035); }
-    code {
-      display: inline-block; font-family: inherit; font-size: 12px; font-weight: 600;
-      color: var(--blue-600); background: var(--primary-soft);
-      padding: 3px 10px; border-radius: 7px;
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand .logo {
+      width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+      background: radial-gradient(120% 120% at 30% 18%, #dbeafe, #eef6ff 60%);
+      box-shadow: inset 0 0 0 1px rgba(59,130,246,.15);
     }
-    .dim { font-size: 11px; color: var(--ink-400); margin-top: 3px; }
+    .brand .logo img { width: 26px; height: 26px; image-rendering: pixelated; object-fit: contain; }
+    .brand h1 { font-size: 16px; font-weight: 700; margin: 0; }
+    .brand .sub { font-size: 12px; color: var(--ink-400); margin: 0; }
+    .topbar .spacer { flex: 1; }
+    .dirty-dot { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-500); }
+    .dirty-dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-400); }
+    .dirty-dot.is-dirty { color: var(--warn); }
+    .dirty-dot.is-dirty::before { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); }
+    .dirty-dot.is-saved { color: var(--success); }
+    .dirty-dot.is-saved::before { background: var(--success); }
+    .btn {
+      background: var(--primary); color: #fff; border: none; border-radius: var(--radius-sm);
+      padding: 9px 20px; font: 600 13px var(--font); cursor: pointer;
+      transition: background .15s, transform .1s;
+    }
+    .btn:hover { background: var(--primary-strong); }
+    .btn:active { transform: translateY(1px); }
+    .btn.ghost { background: transparent; color: var(--ink-500); border: 1px solid var(--line-strong); }
+    .btn.ghost:hover { background: #f1f5f9; color: var(--ink-700); }
+
+    /* ── 主体布局：Tabs + 双栏 ── */
+    .shell { max-width: 1240px; margin: 0 auto; padding: 20px 24px 60px; }
+    .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+    .tab {
+      border: none; background: transparent; cursor: pointer; font: 600 14px var(--font);
+      color: var(--ink-500); padding: 11px 18px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color .15s, border-color .15s;
+    }
+    .tab:hover { color: var(--ink-700); }
+    .tab.active { color: var(--blue-600); border-bottom-color: var(--blue-600); }
+    .tab .n { font-size: 11px; color: var(--ink-400); margin-left: 5px; }
+
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+    @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
+
+    /* ── 面板 ── */
+    .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+    .panel-head { display: flex; align-items: center; gap: 11px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+    .panel-head h2 { font-size: 15px; font-weight: 700; margin: 0; }
+    .panel-head .desc { font-size: 12px; color: var(--ink-400); margin: 1px 0 0; }
+    .panel-body { padding: 18px 20px; }
+
+    /* ── 实时预览面板 ── */
+    .preview { position: sticky; top: 84px; }
+    .pv-stage {
+      display: grid; place-items: center; min-height: 220px;
+      background: radial-gradient(120% 120% at 50% 30%, #f4f9ff, #e9f1fb);
+      border-bottom: 1px solid var(--line);
+    }
+    .pv-stage img { width: 150px; height: 150px; image-rendering: pixelated; object-fit: contain; }
+    .pv-meta { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+    .pv-meta .row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-500); margin: 3px 0; }
+    .pv-meta .row b { color: var(--ink-900); font-weight: 600; }
+    .pv-actions { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+    .pv-actions .btn { flex: 1; padding: 8px 0; }
+    .pv-relation { padding: 14px 18px; }
+    .pv-relation h3 { font-size: 11px; color: var(--ink-400); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px; }
+    .flow { display: flex; flex-direction: column; gap: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    .flow .step { display: flex; align-items: center; gap: 8px; color: var(--ink-700); }
+    .flow .arrow { color: var(--ink-400); }
+    .flow .pill { background: var(--primary-soft); color: var(--blue-600); border-radius: 6px; padding: 1px 8px; font-weight: 600; }
 
     /* ── 表单组件 ── */
+    label.fl { display: block; font-size: 12px; font-weight: 600; color: var(--ink-500); margin-bottom: 6px; }
     input[type=text], input[type=number], select {
-      width: 100%; padding: 8px 11px; background: #fff;
-      border: 1px solid var(--line); border-radius: var(--radius-sm);
-      color: var(--ink-900); font: inherit;
+      width: 100%; padding: 8px 11px; background: #fff; border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm); color: var(--ink-900); font: inherit;
       transition: border-color .15s, box-shadow .15s;
     }
     input[type=text]:focus, input[type=number]:focus, select:focus {
-      outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, .14);
+      outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,.14);
     }
-    input[type=color] { width: 44px; height: 34px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: #fff; cursor: pointer; }
+    input[type=color] { width: 38px; height: 30px; padding: 2px; border: 1px solid var(--line-strong); border-radius: 7px; background: #fff; cursor: pointer; }
     input[type=file] { color: var(--ink-500); font: inherit; width: 100%; }
     input[type=file]::file-selector-button {
       background: var(--primary-soft); color: var(--blue-600); border: none; border-radius: 7px;
-      padding: 6px 12px; margin-right: 10px; font: 600 12px inherit; cursor: pointer; transition: background .15s;
+      padding: 6px 12px; margin-right: 10px; font: 600 12px var(--font); cursor: pointer;
     }
-    input[type=file]::file-selector-button:hover { background: #dbeafe; }
 
-    /* ── 按钮 ── */
-    .btn {
-      background: var(--primary); color: #fff; border: none; border-radius: var(--radius-sm);
-      padding: 10px 22px; font: 600 14px inherit; cursor: pointer;
-      box-shadow: 0 6px 16px rgba(59, 130, 246, .24);
-      transition: transform .12s, box-shadow .15s, background .15s;
+    .btn-add {
+      background: var(--primary-soft); color: var(--blue-600); border: none; border-radius: 7px;
+      padding: 6px 14px; font: 600 12px var(--font); cursor: pointer; white-space: nowrap;
+      transition: background .15s;
     }
-    .btn:hover { background: var(--primary-strong); box-shadow: 0 8px 20px rgba(59, 130, 246, .3); transform: translateY(-1px); }
-    .btn:active { transform: translateY(0); }
-    .btn.danger { background: #fff; color: var(--danger); border: 1px solid #fecaca; box-shadow: none; }
-    .btn.danger:hover { background: #fef2f2; }
-    .btn-mini { background: var(--danger-soft); color: #b91c1c; border: none; border-radius: 8px; padding: 5px 12px; font: 600 12px inherit; cursor: pointer; transition: background .15s; }
-    .btn-mini:hover { background: #fecaca; }
-    .btn-mini.add { background: var(--primary-soft); color: var(--blue-600); }
-    .btn-mini.add:hover { background: #dbeafe; }
+    .btn-add:hover { background: #dbeafe; }
 
-    /* ── 提示消息 ── */
-    #status-msg, #restart-msg { font-size: 13px; color: var(--ink-500); margin: 0; }
-    #status-msg.ok, #restart-msg.ok { color: var(--success); }
-    #status-msg.err, #restart-msg.err { color: var(--danger); }
-
-    /* ── 颜色选择 ── */
-    .color-cell { display: flex; align-items: center; gap: 10px; }
-    .swatch { width: 22px; height: 22px; border-radius: 7px; border: 1px solid var(--line); flex: none; box-shadow: var(--shadow-xs); }
-
-    /* ── 角色状态 chips ── */
-    .cs-hint { color: var(--ink-400); font-size: 12.5px; margin: -6px 0 8px; }
-    .cs-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin: 14px 0; }
-    .cs-row .field { flex: 1 1 190px; min-width: 140px; }
-    .cs-row .field.grow { flex: 1 1 360px; }
-    .cs-row label { display: block; color: var(--ink-500); font-size: 12px; font-weight: 500; margin-bottom: 6px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 7px; min-height: 38px; padding: 7px; background: #f8fafc; border: 1px solid var(--line); border-radius: var(--radius-sm); }
-    .chip { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; box-shadow: var(--shadow-xs); }
-    .chip .x { cursor: pointer; color: var(--ink-400); font-weight: 700; border-radius: 50%; width: 16px; height: 16px; display: grid; place-items: center; transition: color .15s, background .15s; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; padding: 6px; background: #f8fafc; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); }
+    .chip { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font-size: 12.5px; }
+    .chip .x { cursor: pointer; color: var(--ink-400); font-weight: 700; border-radius: 50%; width: 15px; height: 15px; display: grid; place-items: center; }
     .chip .x:hover { color: var(--danger); background: var(--danger-soft); }
     .chip-add { display: flex; gap: 8px; margin-top: 8px; }
     .chip-add select { flex: 1; }
 
-    /* ── 拖拽方向 ── */
-    .drag-dirs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 4px 0 6px; }
-    .drag-dir { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px; background: #fbfdff; }
-    .drag-dir .dir-label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-700); margin-bottom: 8px; }
-    .drag-dir .flip { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-500); margin-top: 9px; cursor: pointer; }
-    .drag-dir .flip input { accent-color: var(--primary); cursor: pointer; }
-    @media (max-width: 560px) { .drag-dirs { grid-template-columns: 1fr; } }
+    /* ── 任务反馈映射表 ── */
+    .map-table { width: 100%; border-collapse: collapse; }
+    .map-table th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--ink-400); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+    .map-table td { padding: 11px 10px; border-bottom: 1px solid rgba(100,116,139,.08); vertical-align: middle; }
+    .map-table tbody tr:last-child td { border-bottom: none; }
+    .map-table tbody tr { transition: background .15s; }
+    .map-table tbody tr:hover { background: rgba(59,130,246,.03); }
+    .status-name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+    .status-name .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+    .status-name .meaning { font-size: 11px; color: var(--ink-400); font-weight: 400; }
+    .txt-input { width: 100%; border: 1px solid transparent; background: transparent; padding: 5px 8px; border-radius: 7px; font: inherit; color: var(--ink-900); }
+    .txt-input:hover { background: #f8fafc; }
+    .txt-input:focus { outline: none; border-color: var(--primary); background: #fff; }
+    .color-cell { display: flex; align-items: center; gap: 8px; }
+    .swatch { width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--line); flex: none; }
 
-    /* ── 帧管理 ── */
-    .frame-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin: 14px 0; padding-top: 14px; border-top: 1px dashed var(--line); }
-    .frame-row:first-of-type { padding-top: 0; border-top: none; }
-    .frame-row .field { flex: 1 1 170px; min-width: 130px; }
-    .frame-row .field-file { flex: 1 1 280px; }
-    .frame-row label { display: block; color: var(--ink-500); font-size: 12px; font-weight: 500; margin-bottom: 6px; }
-    .frames-grid { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
-    .frames-grid img { width: 72px; height: 72px; image-rendering: pixelated; background: #f1f5f9; border: 1px solid var(--line); border-radius: 12px; padding: 6px; object-fit: contain; transition: transform .15s, box-shadow .15s; }
-    .frames-grid img:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
-    .frames-grid .empty { color: var(--ink-400); padding: 24px 0; }
-    .bar { display: flex; align-items: center; gap: 12px; }
+    /* ── 行为规则卡片 ── */
+    .rule { border: 1px solid var(--line); border-radius: var(--radius-md); margin-bottom: 14px; overflow: hidden; }
+    .rule-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #fbfdff; border-bottom: 1px solid var(--line); }
+    .rule-head .ico { font-size: 16px; }
+    .rule-head .t { font-weight: 700; font-size: 14px; }
+    .rule-head .trig { font-size: 12px; color: var(--ink-500); }
+    .rule-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+    .rule-body .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+    .rule-body .field { flex: 1 1 180px; min-width: 140px; }
+    .rule-body .field.grow { flex: 1 1 320px; }
+    .flowchain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-500); padding: 8px 12px; background: #f8fafc; border-radius: 8px; }
+    .flowchain .k { color: var(--ink-400); }
+    .flowchain .v { font-weight: 600; color: var(--ink-900); }
+    .flowchain .arr { color: var(--blue-500); }
 
-    /* ── 底部保存栏 ── */
-    .save-bar {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
-      background: rgba(255, 255, 255, .94);
-      border-top: 1px solid var(--line);
-      box-shadow: 0 -8px 30px rgba(15, 23, 42, .06);
-      padding: 12px 22px;
-    }
-    .save-bar-inner { max-width: 900px; margin: 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
-    .save-hint { font-size: 12px; color: var(--ink-400); margin-right: auto; }
+    /* ── 方向网格 ── */
+    .dir-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 520px) { .dir-grid { grid-template-columns: 1fr; } }
+    .dir-cell { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 11px 12px; background: #fbfdff; }
+    .dir-cell .dir-label { font-size: 12.5px; font-weight: 600; color: var(--ink-700); margin-bottom: 7px; }
+    .dir-cell .flip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-500); margin-top: 8px; cursor: pointer; }
+    .dir-cell .flip input { accent-color: var(--primary); cursor: pointer; }
 
-    @media (max-width: 560px) {
-      .hero { flex-direction: column; text-align: center; }
-      .hero-tags { justify-content: center; }
-      .save-hint { display: none; }
-    }
+    /* ── 动作库卡片 ── */
+    .action-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+    .act-card { border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; display: flex; flex-direction: column; }
+    .act-thumb { display: grid; place-items: center; height: 120px; background: radial-gradient(120% 120% at 50% 30%, #f4f9ff, #e9f1fb); cursor: pointer; }
+    .act-thumb img { width: 88px; height: 88px; image-rendering: pixelated; object-fit: contain; }
+    .act-body { padding: 11px 13px; display: flex; flex-direction: column; gap: 6px; }
+    .act-body .name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 7px; }
+    .act-body .meta { font-size: 11.5px; color: var(--ink-400); }
+    .act-body .row { display: flex; gap: 7px; margin-top: 3px; }
+    .act-body .row .btn { flex: 1; padding: 6px 0; font-size: 12px; }
+    .act-edit { border-top: 1px solid var(--line); padding: 11px 13px; background: #fbfdff; display: flex; flex-direction: column; gap: 8px; }
+    .act-edit .erow { display: flex; gap: 8px; align-items: center; }
+    .act-edit .erow label { width: 58px; font-size: 11.5px; color: var(--ink-500); flex: none; }
+    .menu-dots { background: none; border: none; cursor: pointer; color: var(--ink-400); font-size: 16px; padding: 2px 8px; border-radius: 6px; }
+    .menu-dots:hover { background: #f1f5f9; color: var(--ink-700); }
+
+    .hint { font-size: 12px; color: var(--ink-400); margin: 0 0 14px; }
+    .empty { color: var(--ink-400); padding: 20px 0; text-align: center; }
+    .frames-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .frames-grid img { width: 56px; height: 56px; image-rendering: pixelated; background: #f1f5f9; border: 1px solid var(--line); border-radius: 9px; padding: 4px; object-fit: contain; }
+    .frame-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding-top: 14px; margin-top: 14px; border-top: 1px dashed var(--line); }
+    .frame-row .field { flex: 1 1 160px; min-width: 120px; }
+    .frame-row .field-file { flex: 1 1 260px; }
+    .divider { border: none; border-top: 1px solid var(--line); margin: 18px 0; }
   </style>
 </head>
 <body>
-  <div class="bg-decor" aria-hidden="true">
-    <span class="blob blob-1"></span>
-    <span class="blob blob-2"></span>
-  </div>
-
-  <div class="wrap">
-    <header class="hero">
-      <div class="hero-avatar"><img id="pet-avatar" alt="桌宠预览" onerror="this.style.display='none'" /></div>
-      <div class="hero-text">
-        <span class="eyebrow">Seeki</span>
-        <h1>桌宠配置</h1>
-        <p class="sub">为你的 AI 桌面小伙伴，定制外观、动作与状态。</p>
-        <div class="hero-tags">
-          <span class="tag">✨ 透明置顶</span>
-          <span class="tag">🎨 2D 像素精灵</span>
-          <span class="tag">💬 状态联动</span>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="logo"><img id="pet-avatar" alt="" onerror="this.style.display='none'" /></span>
+        <div>
+          <h1>Seeki 行为编辑器</h1>
+          <p class="sub">任务反馈 → 角色状态 → 动作</p>
         </div>
       </div>
-    </header>
-
-    <section class="card">
-      <div class="card-head">
-        <span class="card-icon c-blue">💬</span>
-        <div><h2>任务状态</h2><p class="card-desc">头顶气泡的文字与颜色；进入该状态时触发一个或多个角色动作（随机播放，received / completed / terminated 生效）</p></div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th style="width:140px">任务状态</th><th>气泡文字</th><th style="width:120px">颜色</th><th style="width:170px">进入状态时触发角色动作（多个 = 随机）</th></tr></thead>
-          <tbody id="statuses-body"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <span class="card-icon c-sky">🖱️</span>
-        <div><h2>角色状态</h2><p class="card-desc">以「鼠标状态」为底层，状态开始可挂多个动作随机播放</p></div>
-      </div>
-
-      <div class="cs-row">
-        <div class="field"><label>默认 default · 常驻动作</label><select id="cs-default"></select></div>
-      </div>
-
-      <div class="cs-row">
-        <div class="field grow"><label>点击 click · 状态开始（多个 = 随机）</label>
-          <div class="chips" id="cs-click-play"></div>
-          <div class="chip-add"><select id="cs-click-add"></select><button class="btn-mini add" data-add-play="click">＋添加</button></div>
-        </div>
-        <div class="field"><label>状态末（点击后返回）</label><select id="cs-click-return"></select></div>
-        <div class="field"><label>持续 ms</label><input type="number" id="cs-click-ms" min="0" step="100" /></div>
-      </div>
-
-      <div class="cs-row">
-        <div class="field"><label>状态末（松开后）</label><select id="cs-drag-return"></select></div>
-      </div>
-
-      <div class="drag-dirs">
-        <div class="drag-dir">
-          <span class="dir-label">← 向左</span>
-          <div class="chips" data-drag-chips="left"></div>
-          <div class="chip-add"><select data-drag-add="left"></select><button class="btn-mini add" data-drag-addbtn="left">＋</button></div>
-          <label class="flip"><input type="checkbox" data-drag-flipx="left" /> 水平镜像</label>
-        </div>
-        <div class="drag-dir">
-          <span class="dir-label">→ 向右</span>
-          <div class="chips" data-drag-chips="right"></div>
-          <div class="chip-add"><select data-drag-add="right"></select><button class="btn-mini add" data-drag-addbtn="right">＋</button></div>
-          <label class="flip"><input type="checkbox" data-drag-flipx="right" /> 水平镜像</label>
-        </div>
-        <div class="drag-dir">
-          <span class="dir-label">↑ 向上</span>
-          <div class="chips" data-drag-chips="up"></div>
-          <div class="chip-add"><select data-drag-add="up"></select><button class="btn-mini add" data-drag-addbtn="up">＋</button></div>
-          <label class="flip"><input type="checkbox" data-drag-flipy="up" /> 垂直翻转</label>
-        </div>
-        <div class="drag-dir">
-          <span class="dir-label">↓ 向下</span>
-          <div class="chips" data-drag-chips="down"></div>
-          <div class="chip-add"><select data-drag-add="down"></select><button class="btn-mini add" data-drag-addbtn="down">＋</button></div>
-          <label class="flip"><input type="checkbox" data-drag-flipy="down" /> 垂直翻转</label>
-        </div>
-      </div>
-
-      <div class="cs-row">
-        <div class="field"><label>超时 timeout · 超时前（停留动作）</label><select id="cs-timeout-before"></select></div>
-        <div class="field"><label>超时后（进入动作）</label><select id="cs-timeout-after"></select></div>
-        <div class="field"><label>空闲时长 ms</label><input type="number" id="cs-timeout-ms" min="0" step="1000" /></div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <span class="card-icon c-amber">🎞️</span>
-        <div><h2>角色动作</h2><p class="card-desc">桌宠的动画帧序列；可直接改标签、帧目录、帧数与帧率</p></div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th style="width:110px">角色动作</th><th>标签</th><th>帧目录</th><th style="width:90px">帧长 count</th><th style="width:90px">帧率 fps</th><th style="width:70px">操作</th></tr></thead>
-          <tbody id="actions-body"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <span class="card-icon c-green">🖼️</span>
-        <div><h2>动作帧管理</h2><p class="card-desc">上传 / 替换 / 新增动作的帧序列，帧变动需「重启桌宠」加载</p></div>
-      </div>
-      <div class="frame-row">
-        <div class="field"><label>查看动作</label><select id="frame-action"></select></div>
-        <div class="field field-file"><label>替换帧（PNG 可多选，顺序即播放顺序）</label><input type="file" id="replace-files" accept="image/png" multiple /></div>
-        <div class="field"><label>标签 label（留空沿用原值）</label><input type="text" id="replace-label" /></div>
-        <div class="field"><label>帧率 fps（留空沿用原值）</label><input type="number" id="replace-fps" step="0.1" min="0.1" /></div>
-        <div class="field"><button class="btn" id="replace-btn">上传替换</button></div>
-      </div>
-      <div id="frames-grid" class="frames-grid"></div>
-      <div class="frame-row">
-        <div class="field"><label>新动作名（自动生成帧目录）</label><input type="text" id="new-action-name" placeholder="e.g. wave" /></div>
-        <div class="field field-file"><label>帧（PNG 可多选）</label><input type="file" id="new-action-files" accept="image/png" multiple /></div>
-        <div class="field"><label>帧率 fps（默认 5）</label><input type="number" id="new-action-fps" step="0.1" min="0.1" value="5" /></div>
-        <div class="field"><button class="btn" id="add-action-btn">添加动作</button></div>
-      </div>
-      <div class="bar" style="margin-top:16px">
-        <button class="btn danger" id="restart-btn">重启桌宠</button>
-        <span id="restart-msg"></span>
-      </div>
-    </section>
-  </div>
-
-  <footer class="save-bar">
-    <div class="save-bar-inner">
-      <span class="save-hint">改动保存后，重启桌宠即生效</span>
-      <span id="status-msg"></span>
+      <div class="spacer"></div>
+      <span class="dirty-dot" id="dirty-dot">已保存</span>
       <button class="btn" id="save">保存配置</button>
     </div>
-  </footer>
+  </header>
+
+  <div class="shell">
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="task">任务反馈<span class="n">Task</span></button>
+      <button class="tab" data-tab="state">角色状态<span class="n">State</span></button>
+      <button class="tab" data-tab="action">动作库<span class="n">Action</span></button>
+    </nav>
+
+    <div class="layout">
+      <div class="editor" id="editor"></div>
+
+      <aside class="preview">
+        <div class="panel">
+          <div class="panel-head"><h2>实时预览</h2></div>
+          <div class="pv-stage"><img id="pv-img" alt="Seeki" /></div>
+          <div class="pv-meta">
+            <div class="row"><span>当前动作</span><b id="pv-action">—</b></div>
+            <div class="row"><span>帧数</span><b id="pv-frames">—</b></div>
+            <div class="row"><span>帧率</span><b id="pv-fps">—</b></div>
+          </div>
+          <div class="pv-actions">
+            <button class="btn" id="pv-play">▶ 播放动画</button>
+            <button class="btn ghost" id="pv-replay">↻ 重播</button>
+          </div>
+          <div class="pv-relation">
+            <h3>状态关系</h3>
+            <div class="flow" id="pv-flow"></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
 
   <script>
     let config = null
     let frameBust = 0
+    let dirty = false
+    let currentTab = 'task'
     const API = '/api/pet.config'
-    const STATUS_MEANING = { received: '收到发送', running: '任务进行', completed: '任务完成', terminated: '任务截止', offline: '离线' }
     const FRAMES_API = '/api/pet.frames'
     const RESTART_API = '/api/pet.restart'
+    const STATUS_MEANING = { received: '收到发送', running: '任务进行', completed: '任务完成', terminated: '任务截止', offline: '离线' }
+    const STATUS_DOT = { received: '#f59e0b', running: '#3b82f6', completed: '#16a34a', terminated: '#ef4444', offline: '#94a3b8' }
+    const DIR_LABEL = { left: '← 向左', right: '→ 向右', up: '↑ 向上', down: '↓ 向下' }
+
+    // 预览状态
+    let pvAction = null
+    let pvTimer = null
+    let pvFrame = 0
 
     async function load() {
       const res = await fetch(API)
-      if (!res.ok) { msg('配置加载失败', true); return }
+      if (!res.ok) { setMsg('配置加载失败', true); return }
       config = await res.json()
       normalize()
       frameBust++
       render()
     }
 
-    // 补齐缺失字段（角色状态以鼠标状态为底层）
+    // 补齐缺失字段（与旧逻辑一致，保持配置格式不变）
     function normalize() {
       config.statusActionMs = config.statusActionMs ?? 2000
       config.characterStates = config.characterStates || {}
@@ -361,193 +299,342 @@
       for (const k of ['default', 'click']) {
         if (!Array.isArray(cs[k].play)) cs[k].play = [cs[k].play].filter(Boolean)
       }
-      // 拖拽方向：旧 play（单一池）→ directions（上下左右映射，向右默认镜像）
       if (!cs.drag.directions) {
         const oldPlay = Array.isArray(cs.drag.play) ? [...cs.drag.play] : []
-        cs.drag.directions = {
-          left: { play: oldPlay },
-          right: { play: oldPlay, flipX: true },
-          up: { play: [] },
-          down: { play: [] },
-        }
+        cs.drag.directions = { left: { play: oldPlay }, right: { play: oldPlay, flipX: true }, up: { play: [] }, down: { play: [] } }
         delete cs.drag.play
       }
       for (const dir of ['left', 'right', 'up', 'down']) {
         const d = cs.drag.directions[dir] || (cs.drag.directions[dir] = {})
         if (!Array.isArray(d.play)) d.play = []
       }
-      // 任务状态动作：旧 action（单个）→ actions（数组，多个=随机）
       for (const s of Object.values(config.statuses || {})) {
         if (!Array.isArray(s.actions)) s.actions = s.action ? [s.action] : []
         delete s.action
       }
     }
 
-    // 动作下拉选项（显示中文标签，缺标签时退回动作名）
-    function actionSelect(selected) {
-      return Object.entries(config.actions).map(([id, a]) =>
-        `<option value="${id}" ${id === selected ? 'selected' : ''}>${escapeHtml(a.label || id)}</option>`
-      ).join('')
-    }
-
-    function actionLabel(id) {
-      const a = config.actions[id]
-      return a ? (a.label || id) : id
+    function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;') }
+    function actionLabel(id) { const a = config.actions[id]; return a ? (a.label || id) : id }
+    function actionFolder(id) { const a = config.actions[id]; return (a && a.folder) || id }
+    function actionSelect(selected, blank) {
+      const opts = Object.entries(config.actions).map(([id, a]) =>
+        `<option value="${id}" ${id === selected ? 'selected' : ''}>${escapeHtml(a.label || id)}</option>`).join('')
+      return (blank ? `<option value="">${blank}</option>` : '') + opts
     }
     function chipsHtml(actions) {
       return (actions || []).map(a =>
-        `<span class="chip" data-chip="${a}">${escapeHtml(actionLabel(a))}<span class="x" data-rm="${a}">×</span></span>`
-      ).join('')
+        `<span class="chip" data-chip="${a}">${escapeHtml(actionLabel(a))}<span class="x" data-rm="${a}">×</span></span>`).join('')
     }
-    function renderChips(containerId, actions) {
-      document.getElementById(containerId).innerHTML = chipsHtml(actions)
+
+    function markDirty() { dirty = true; updateDirty() }
+    function setMsg(text, isErr) {
+      const el = document.getElementById('dirty-dot')
+      el.textContent = (isErr ? '⚠ ' : '✓ ') + text
+      el.className = 'dirty-dot ' + (isErr ? 'is-dirty' : 'is-saved')
+    }
+    function updateDirty() {
+      const el = document.getElementById('dirty-dot')
+      el.textContent = dirty ? '● 有未保存修改' : '✓ 已保存'
+      el.className = dirty ? 'dirty-dot is-dirty' : 'dirty-dot is-saved'
     }
 
     function render() {
-      // 状态表
-      const statusActionOptions = Object.keys(config.actions).map(a => `<option value="${a}">${escapeHtml(actionLabel(a))}</option>`).join('')
-      const sb = document.getElementById('statuses-body')
-      sb.innerHTML = Object.entries(config.statuses).map(([id, s]) => `
-        <tr>
-          <td><code>${id}</code><div class="dim">${STATUS_MEANING[id] ?? ''}</div></td>
-          <td><input type="text" data-status="${id}" data-field="text" value="${escapeHtml(s.text)}" /></td>
-          <td><div class="color-cell">
-            <span class="swatch" style="background:${s.color}"></span>
-            <input type="color" data-status="${id}" data-field="color" value="${s.color}" />
-          </div></td>
-          <td>
-            <div class="chips status-chips" data-status-chips="${id}">${chipsHtml(s.actions)}</div>
-            <div class="chip-add">
-              <select data-status-add="${id}">${statusActionOptions}</select>
-              <button class="btn-mini add" data-status-addbtn="${id}">＋</button>
-            </div>
-          </td>
-        </tr>`).join('')
-      // 动作表
-      const ab = document.getElementById('actions-body')
-      ab.innerHTML = Object.entries(config.actions).map(([id, a]) => `
-        <tr>
-          <td><code>${id}</code></td>
-          <td><input type="text" data-action="${id}" data-field="label" value="${escapeHtml(a.label)}" /></td>
-          <td><input type="text" data-action="${id}" data-field="folder" value="${escapeHtml(a.folder)}" /></td>
-          <td><input type="number" min="1" data-action="${id}" data-field="count" value="${a.count}" /></td>
-          <td><input type="number" min="0.1" step="0.1" data-action="${id}" data-field="fps" value="${a.fps}" /></td>
-          <td><button class="btn-mini" data-del-action="${id}">删除</button></td>
-        </tr>`).join('')
-      // 角色状态
-      const cs = config.characterStates
-      document.getElementById('cs-default').innerHTML = actionSelect(cs.default.play[0])
-      renderChips('cs-click-play', cs.click.play)
-      document.getElementById('cs-click-add').innerHTML = actionSelect('')
-      document.getElementById('cs-click-return').innerHTML = actionSelect(cs.click.returnTo)
-      document.getElementById('cs-click-ms').value = cs.click.afterMs
-      document.getElementById('cs-drag-return').innerHTML = actionSelect(cs.drag.returnTo)
-      for (const dir of ['left', 'right', 'up', 'down']) {
-        const d = cs.drag.directions[dir]
-        document.querySelector(`[data-drag-chips="${dir}"]`).innerHTML = chipsHtml(d.play)
-        document.querySelector(`[data-drag-add="${dir}"]`).innerHTML = actionSelect('')
-        const flipx = document.querySelector(`[data-drag-flipx="${dir}"]`)
-        if (flipx) flipx.checked = !!d.flipX
-        const flipy = document.querySelector(`[data-drag-flipy="${dir}"]`)
-        if (flipy) flipy.checked = !!d.flipY
-      }
-      document.getElementById('cs-timeout-before').innerHTML = actionSelect(cs.timeout.before)
-      document.getElementById('cs-timeout-after').innerHTML = actionSelect(cs.timeout.after)
-      document.getElementById('cs-timeout-ms').value = cs.timeout.afterMs
-      // 帧管理动作下拉
-      const fa = document.getElementById('frame-action')
-      const prev = fa.value
-      fa.innerHTML = Object.keys(config.actions).map(a => `<option value="${a}">${a}</option>`).join('')
-      if (Object.keys(config.actions).includes(prev)) fa.value = prev
-      renderFrames(fa.value)
-      // 头部桌宠预览（默认待机动作第一帧）
+      document.getElementById('tabs').querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === currentTab))
+      const ed = document.getElementById('editor')
+      if (currentTab === 'task') ed.innerHTML = renderTaskFeedback()
+      else if (currentTab === 'state') ed.innerHTML = renderCharacterStates()
+      else ed.innerHTML = renderActionLibrary()
+      renderPreview()
+      if (currentTab === 'action') fillFrameSelect()
+      // 头部 avatar（默认动作第一帧）
       const avatar = document.getElementById('pet-avatar')
       if (avatar) {
         const def = config.characterStates.default.play[0]
-        const folder = (config.actions[def] || {}).folder || def
-        avatar.src = `/pet/frames/${folder}/frame_000.png?${frameBust}`
+        avatar.src = `/pet/frames/${actionFolder(def)}/frame_000.png?${frameBust}`
       }
     }
 
-    function renderFrames(actionId) {
-      const grid = document.getElementById('frames-grid')
-      const a = config.actions[actionId]
-      if (!a) { grid.innerHTML = '<span class="empty">（暂无动作）</span>'; return }
-      const folder = a.folder || actionId
-      const imgs = []
-      for (let i = 0; i < a.count; i++) {
-        const file = `frame_${String(i).padStart(3, '0')}.png`
-        imgs.push(`<img src="/pet/frames/${folder}/${file}?v=${frameBust}" alt="${file}" title="${file}" />`)
-      }
-      grid.innerHTML = imgs.join('')
+    // ── Tab 1：任务反馈（映射表）──
+    function renderTaskFeedback() {
+      const rows = Object.entries(config.statuses).map(([id, s]) => `
+        <tr>
+          <td><div class="status-name"><span class="dot" style="background:${s.color}"></span><span>${id}</span><span class="meaning">${STATUS_MEANING[id] || ''}</span></div></td>
+          <td><input class="txt-input" type="text" data-status="${id}" data-field="text" value="${escapeHtml(s.text)}" /></td>
+          <td><div class="color-cell"><span class="swatch" style="background:${s.color}"></span><input type="color" data-status="${id}" data-field="color" value="${s.color}" /></div></td>
+          <td>
+            <div class="chips status-chips" data-status-chips="${id}">${chipsHtml(s.actions)}</div>
+            <div class="chip-add">
+              <select data-status-add="${id}">${actionSelect('', '选择动作')}</select>
+              <button class="btn-add" data-status-addbtn="${id}">＋添加动作</button>
+            </div>
+          </td>
+        </tr>`).join('')
+      return `
+        <div class="panel">
+          <div class="panel-head"><div><h2>任务反馈映射</h2><p class="desc">系统任务状态 → 头顶气泡文字 / 颜色 → Seeki 播放的动作</p></div></div>
+          <div class="panel-body" style="padding:0">
+            <table class="map-table">
+              <thead><tr><th style="width:150px">任务状态</th><th>显示文字</th><th style="width:90px">颜色</th><th>Seeki 状态 / 动作</th></tr></thead>
+              <tbody id="statuses-body">${rows}</tbody>
+            </table>
+          </div>
+        </div>`
     }
 
-    document.getElementById('frame-action').addEventListener('change', (e) => renderFrames(e.target.value))
+    // ── Tab 2：角色状态（行为规则）──
+    function renderCharacterStates() {
+      const cs = config.characterStates
+      const flow = (trig, play, next, ms) => {
+        const p = (play || []).map(actionLabel).join(' / ') || '（无）'
+        return `<div class="flowchain"><span class="k">${trig}</span><span class="arr">→</span><span class="v">${p}</span>${ms ? `<span class="arr">→</span><span class="k">${ms}ms</span>` : ''}<span class="arr">→</span><span class="v">回到 ${actionLabel(next)}</span></div>`
+      }
+      const dirCells = ['left', 'right', 'up', 'down'].map(dir => {
+        const d = cs.drag.directions[dir]
+        const flipX = dir === 'left' || dir === 'right'
+        const flipY = dir === 'up' || dir === 'down'
+        return `
+          <div class="dir-cell">
+            <div class="dir-label">${DIR_LABEL[dir]}</div>
+            <div class="chips" data-drag-chips="${dir}">${chipsHtml(d.play)}</div>
+            <div class="chip-add"><select data-drag-add="${dir}">${actionSelect('', '选择动作')}</select><button class="btn-add" data-drag-addbtn="${dir}">＋添加</button></div>
+            <label class="flip"><input type="checkbox" data-drag-flip="${flipX ? 'x' : 'y'}" data-drag-dir="${dir}" ${flipX ? (d.flipX ? 'checked' : '') : (d.flipY ? 'checked' : '')} /> ${flipX ? '水平镜像' : '垂直翻转'}</label>
+          </div>`
+      }).join('')
 
-    // 角色状态随机池（点击）：chip 删除 / 添加动作
-    document.getElementById('cs-click-play').addEventListener('click', (e) => {
-      const rm = e.target.closest('[data-rm]')
-      if (!rm) return
-      config.characterStates.click.play = config.characterStates.click.play.filter((a) => a !== rm.dataset.rm)
-      renderChips('cs-click-play', config.characterStates.click.play)
-    })
-    document.querySelector('[data-add-play="click"]').addEventListener('click', () => {
-      const select = document.getElementById('cs-click-add')
-      const v = select.value
-      if (!v) return
-      const pool = config.characterStates.click.play
-      if (!pool.includes(v)) pool.push(v)
-      renderChips('cs-click-play', pool)
+      return `
+        <div class="panel">
+          <div class="panel-head"><div><h2>角色行为规则</h2><p class="desc">触发条件 → 进入状态 → 播放动作 → 结束后返回</p></div></div>
+          <div class="panel-body">
+            <div class="rule">
+              <div class="rule-head"><span class="ico">🖱️</span><span class="t">点击 Seeki</span><span class="trig">当用户点击桌宠时</span></div>
+              <div class="rule-body">
+                <div class="row">
+                  <div class="field grow">
+                    <label class="fl">进入状态（多个 = 随机播放）</label>
+                    <div class="chips" id="cs-click-play">${chipsHtml(cs.click.play)}</div>
+                    <div class="chip-add"><select id="cs-click-add">${actionSelect('', '选择动作')}</select><button class="btn-add" id="cs-click-addbtn">＋添加状态</button></div>
+                  </div>
+                  <div class="field"><label class="fl">结束后返回</label><select id="cs-click-return">${actionSelect(cs.click.returnTo)}</select></div>
+                  <div class="field"><label class="fl">持续时长 (ms)</label><input type="number" id="cs-click-ms" min="0" step="100" value="${cs.click.afterMs}" /></div>
+                </div>
+                ${flow('点击', cs.click.play, cs.click.returnTo, cs.click.afterMs)}
+              </div>
+            </div>
+
+            <div class="rule">
+              <div class="rule-head"><span class="ico">🧭</span><span class="t">拖动 Seeki</span><span class="trig">按住并拖动桌宠，按方向切换动作</span></div>
+              <div class="rule-body">
+                <div class="row"><div class="field"><label class="fl">松开后返回</label><select id="cs-drag-return">${actionSelect(cs.drag.returnTo)}</select></div></div>
+                <div class="dir-grid">${dirCells}</div>
+              </div>
+            </div>
+
+            <div class="rule">
+              <div class="rule-head"><span class="ico">😴</span><span class="t">长时间无操作</span><span class="trig">空闲超时后自动切换状态</span></div>
+              <div class="rule-body">
+                <div class="row">
+                  <div class="field"><label class="fl">超时前（停留动作）</label><select id="cs-timeout-before">${actionSelect(cs.timeout.before)}</select></div>
+                  <div class="field"><label class="fl">超时后（进入动作）</label><select id="cs-timeout-after">${actionSelect(cs.timeout.after)}</select></div>
+                  <div class="field"><label class="fl">空闲时长 (ms)</label><input type="number" id="cs-timeout-ms" min="0" step="1000" value="${cs.timeout.afterMs}" /></div>
+                </div>
+                ${flow('超时', [cs.timeout.after], cs.timeout.before, cs.timeout.afterMs)}
+              </div>
+            </div>
+
+            <div class="rule">
+              <div class="rule-head"><span class="ico">🏠</span><span class="t">默认状态</span><span class="trig">Seeki 常驻的基础动作</span></div>
+              <div class="rule-body">
+                <div class="row"><div class="field"><label class="fl">默认动作</label><select id="cs-default">${actionSelect(cs.default.play[0])}</select></div></div>
+              </div>
+            </div>
+          </div>
+        </div>`
+    }
+
+    // ── Tab 3：动作库 ──
+    function renderActionLibrary() {
+      const cards = Object.entries(config.actions).map(([id, a]) => `
+        <div class="act-card" data-act="${id}">
+          <div class="act-thumb" data-preview="${id}"><img src="/pet/frames/${actionFolder(id)}/frame_000.png?v=${frameBust}" alt="${escapeHtml(a.label || id)}" /></div>
+          <div class="act-body">
+            <div class="name">${escapeHtml(a.label || id)}<span style="color:var(--ink-400);font-weight:400;font-size:11px">${id}</span></div>
+            <div class="meta">${a.count || 0} Frames · ${a.fps || 0} FPS</div>
+            <div class="row">
+              <button class="btn" data-preview="${id}">▶ 预览</button>
+              <button class="btn ghost" data-edit-act="${id}">编辑</button>
+            </div>
+            <div class="act-edit" data-edit-panel="${id}" hidden>
+              <div class="erow"><label>标签</label><input type="text" data-action="${id}" data-field="label" value="${escapeHtml(a.label)}" /></div>
+              <div class="erow"><label>帧目录</label><input type="text" data-action="${id}" data-field="folder" value="${escapeHtml(a.folder)}" /></div>
+              <div class="erow"><label>帧长</label><input type="number" min="1" data-action="${id}" data-field="count" value="${a.count}" /></div>
+              <div class="erow"><label>帧率</label><input type="number" min="0.1" step="0.1" data-action="${id}" data-field="fps" value="${a.fps}" /></div>
+              <div class="row"><button class="btn-add" data-del-action="${id}">删除动作</button></div>
+            </div>
+          </div>
+        </div>`).join('')
+      return `
+        <div class="panel">
+          <div class="panel-head"><div><h2>动作库</h2><p class="desc">Seeki 的动画帧序列；点缩略图或「预览」可实时查看效果</p></div></div>
+          <div class="panel-body">
+            <div class="action-grid">${cards || '<span class="empty">（暂无动作）</span>'}</div>
+
+            <hr class="divider" />
+            <h2 style="font-size:14px;margin:0 0 4px">添加新动作</h2>
+            <p class="hint">上传 PNG 帧序列（顺序即播放顺序），自动生成帧目录</p>
+            <div class="frame-row">
+              <div class="field"><label class="fl">动作名</label><input type="text" id="new-action-name" placeholder="e.g. wave" /></div>
+              <div class="field field-file"><label class="fl">帧（PNG 可多选）</label><input type="file" id="new-action-files" accept="image/png" multiple /></div>
+              <div class="field"><label class="fl">帧率 fps</label><input type="number" id="new-action-fps" step="0.1" min="0.1" value="5" /></div>
+              <div class="field" style="flex:0 0 auto"><button class="btn" id="add-action-btn">添加动作</button></div>
+            </div>
+
+            <hr class="divider" />
+            <h2 style="font-size:14px;margin:0 0 4px">替换动作帧</h2>
+            <div class="frame-row">
+              <div class="field"><label class="fl">选择动作</label><select id="frame-action"></select></div>
+              <div class="field field-file"><label class="fl">替换帧（PNG 可多选）</label><input type="file" id="replace-files" accept="image/png" multiple /></div>
+              <div class="field"><label class="fl">标签（留空沿用）</label><input type="text" id="replace-label" /></div>
+              <div class="field"><label class="fl">帧率（留空沿用）</label><input type="number" id="replace-fps" step="0.1" min="0.1" /></div>
+              <div class="field" style="flex:0 0 auto"><button class="btn" id="replace-btn">上传替换</button></div>
+            </div>
+            <div id="frames-grid" class="frames-grid"></div>
+
+            <hr class="divider" />
+            <div style="display:flex;align-items:center;gap:12px">
+              <button class="btn ghost" id="restart-btn">重启桌宠</button>
+              <span id="restart-msg" style="font-size:12.5px;color:var(--ink-500)"></span>
+            </div>
+          </div>
+        </div>`
+    }
+
+    // ── 实时预览 ──
+    function renderPreview() {
+      const def = config.characterStates.default.play[0]
+      if (!pvAction) pvAction = def
+      const a = config.actions[pvAction]
+      const folder = actionFolder(pvAction)
+      const count = a ? (a.count || 0) : 0
+      document.getElementById('pv-action').textContent = a ? (a.label || pvAction) : '—'
+      document.getElementById('pv-frames').textContent = count + ' 帧'
+      document.getElementById('pv-fps').textContent = (a ? a.fps : 0) + ' FPS'
+      if (count > 0) document.getElementById('pv-img').src = `/pet/frames/${folder}/frame_000.png?v=${frameBust}`
+
+      // 状态关系
+      const cs = config.characterStates
+      const flow = []
+      flow.push(`<div class="step"><span class="pill">默认</span><span class="arrow">→</span><b>${actionLabel(cs.default.play[0])}</b></div>`)
+      flow.push(`<div class="step"><span class="pill">点击</span><span class="arrow">→</span><b>${(cs.click.play || []).map(actionLabel).join(' / ') || '—'}</b><span class="arrow">→</span><span class="k">${cs.click.afterMs}ms</span><span class="arrow">→</span><b>${actionLabel(cs.click.returnTo)}</b></div>`)
+      flow.push(`<div class="step"><span class="pill">超时</span><span class="arrow">→</span><b>${actionLabel(cs.timeout.after)}</b></div>`)
+      for (const [sid, s] of Object.entries(config.statuses)) {
+        if (s.actions && s.actions.length) flow.push(`<div class="step"><span class="pill">${STATUS_MEANING[sid] || sid}</span><span class="arrow">→</span><b>${s.actions.map(actionLabel).join(' / ')}</b></div>`)
+      }
+      document.getElementById('pv-flow').innerHTML = flow.join('')
+    }
+
+    function previewAction(id) {
+      if (!config.actions[id]) return
+      pvAction = id
+      pvFrame = 0
+      stopPreview()
+      renderPreview()
+      playPreview()
+    }
+    function playPreview() {
+      stopPreview()
+      const a = config.actions[pvAction]
+      if (!a || !a.count) return
+      const folder = actionFolder(pvAction)
+      const interval = Math.max(40, Math.round(1000 / (a.fps || 5)))
+      pvTimer = setInterval(() => {
+        pvFrame = (pvFrame + 1) % a.count
+        const file = `frame_${String(pvFrame).padStart(3, '0')}.png`
+        document.getElementById('pv-img').src = `/pet/frames/${folder}/${file}?v=${frameBust}`
+      }, interval)
+    }
+    function stopPreview() { if (pvTimer) { clearInterval(pvTimer); pvTimer = null } }
+
+    // ── 事件绑定 ──
+    document.getElementById('tabs').addEventListener('click', (e) => {
+      const t = e.target.closest('.tab'); if (!t) return
+      currentTab = t.dataset.tab
+      render()
     })
 
-    // 拖拽方向随机池：chip 删除 / 添加动作（事件委托，4 个方向）
-    document.querySelector('.drag-dirs').addEventListener('click', (e) => {
+    // 实时回写 config（切 Tab 不丢改动），并标记未保存
+    document.addEventListener('input', (e) => {
+      const t = e.target
+      if (t.matches('[data-status][data-field="text"]')) { config.statuses[t.dataset.status].text = t.value; markDirty(); return }
+      if (t.matches('[data-action][data-field="label"]')) { config.actions[t.dataset.action].label = t.value; markDirty(); return }
+      if (t.matches('[data-action][data-field="folder"]')) { config.actions[t.dataset.action].folder = t.value; markDirty(); return }
+      if (t.matches('[data-action][data-field="count"]')) { config.actions[t.dataset.action].count = Number(t.value) || 1; markDirty(); return }
+      if (t.matches('[data-action][data-field="fps"]')) { config.actions[t.dataset.action].fps = Number(t.value) || 1; markDirty(); return }
+      if (t.id === 'cs-click-ms') { config.characterStates.click.afterMs = Number(t.value) || 0; markDirty() }
+      else if (t.id === 'cs-timeout-ms') { config.characterStates.timeout.afterMs = Number(t.value) || 0; markDirty() }
+    })
+    document.addEventListener('change', (e) => {
+      const t = e.target
+      if (t.matches('[data-status][data-field="color"]')) { config.statuses[t.dataset.status].color = t.value; markDirty(); return }
+      if (t.id === 'cs-default') { config.characterStates.default.play = [t.value]; markDirty() }
+      else if (t.id === 'cs-click-return') { config.characterStates.click.returnTo = t.value; markDirty() }
+      else if (t.id === 'cs-drag-return') { config.characterStates.drag.returnTo = t.value; markDirty() }
+      else if (t.id === 'cs-timeout-before') { config.characterStates.timeout.before = t.value; markDirty() }
+      else if (t.id === 'cs-timeout-after') { config.characterStates.timeout.after = t.value; markDirty() }
+      else if (t.matches('[data-drag-flip]')) {
+        const d = config.characterStates.drag.directions[t.dataset.dragDir]
+        if (t.dataset.dragFlip === 'x') d.flipX = t.checked
+        else d.flipY = t.checked
+        markDirty()
+      }
+    })
+
+    // 编辑区事件委托：chips 删除/添加、方向、预览、编辑、删除、帧切换
+    document.getElementById('editor').addEventListener('click', (e) => {
       const rm = e.target.closest('[data-rm]')
-      const chipsEl = e.target.closest('[data-drag-chips]')
+      const chipsEl = e.target.closest('[data-status-chips],[data-drag-chips],#cs-click-play')
       if (rm && chipsEl) {
-        const dir = chipsEl.dataset.dragChips
-        const d = config.characterStates.drag.directions[dir]
-        if (Array.isArray(d.play)) d.play = d.play.filter((a) => a !== rm.dataset.rm)
-        chipsEl.innerHTML = chipsHtml(d.play)
-        return
+        const pool = getPool(chipsEl)
+        const idx = pool.indexOf(rm.dataset.rm)
+        if (idx >= 0) pool.splice(idx, 1)
+        chipsEl.innerHTML = chipsHtml(pool)
+        markDirty(); return
       }
-      const addBtn = e.target.closest('[data-drag-addbtn]')
+      const addBtn = e.target.closest('[data-status-addbtn],[data-drag-addbtn],#cs-click-addbtn')
       if (addBtn) {
-        const dir = addBtn.dataset.dragAddbtn
-        const select = document.querySelector(`[data-drag-add="${dir}"]`)
+        const isStatus = addBtn.hasAttribute('data-status-addbtn')
+        const isClick = addBtn.id === 'cs-click-addbtn'
+        let pool, select
+        if (isStatus) { pool = config.statuses[addBtn.dataset.statusAddbtn].actions; select = document.querySelector(`[data-status-add="${addBtn.dataset.statusAddbtn}"]`) }
+        else if (isClick) { pool = config.characterStates.click.play; select = document.getElementById('cs-click-add') }
+        else { pool = config.characterStates.drag.directions[addBtn.dataset.dragAddbtn].play; select = document.querySelector(`[data-drag-add="${addBtn.dataset.dragAddbtn}"]`) }
         const v = select && select.value
         if (!v) return
-        const d = config.characterStates.drag.directions[dir]
-        if (!Array.isArray(d.play)) d.play = []
-        if (!d.play.includes(v)) d.play.push(v)
-        document.querySelector(`[data-drag-chips="${dir}"]`).innerHTML = chipsHtml(d.play)
+        if (!pool.includes(v)) pool.push(v)
+        const target = isStatus ? document.querySelector(`[data-status-chips="${addBtn.dataset.statusAddbtn}"]`) : isClick ? document.getElementById('cs-click-play') : document.querySelector(`[data-drag-chips="${addBtn.dataset.dragAddbtn}"]`)
+        if (target) target.innerHTML = chipsHtml(pool)
+        markDirty(); return
       }
+      const pv = e.target.closest('[data-preview]')
+      if (pv) { previewAction(pv.dataset.preview); return }
+      const edit = e.target.closest('[data-edit-act]')
+      if (edit) {
+        const panel = document.querySelector(`[data-edit-panel="${edit.dataset.editAct}"]`)
+        if (panel) panel.hidden = !panel.hidden
+        return
+      }
+      const del = e.target.closest('[data-del-action]')
+      if (del) { deleteAction(del.dataset.delAction); return }
+      if (e.target.closest('#add-action-btn')) { addAction(); return }
+      if (e.target.closest('#replace-btn')) { replaceFrames(); return }
+      if (e.target.closest('#restart-btn')) { restartPet(); return }
     })
 
-    // 任务状态动作随机池：chip 删除 / 添加动作（事件委托）
-    document.getElementById('statuses-body').addEventListener('click', (e) => {
-      const rm = e.target.closest('[data-rm]')
-      const container = e.target.closest('[data-status-chips]')
-      if (rm && container) {
-        const sid = container.dataset.statusChips
-        const s = config.statuses[sid]
-        if (!Array.isArray(s.actions)) s.actions = []
-        s.actions = s.actions.filter((a) => a !== rm.dataset.rm)
-        container.innerHTML = chipsHtml(s.actions)
-        return
-      }
-      const addBtn = e.target.closest('[data-status-addbtn]')
-      if (addBtn) {
-        const sid = addBtn.dataset.statusAddbtn
-        const select = document.querySelector(`[data-status-add="${sid}"]`)
-        const v = select && select.value
-        if (!v) return
-        const s = config.statuses[sid]
-        if (!Array.isArray(s.actions)) s.actions = []
-        if (!s.actions.includes(v)) s.actions.push(v)
-        document.querySelector(`[data-status-chips="${sid}"]`).innerHTML = chipsHtml(s.actions)
-      }
-    })
+    function getPool(chipsEl) {
+      if (chipsEl.id === 'cs-click-play') return config.characterStates.click.play
+      if (chipsEl.hasAttribute('data-status-chips')) { const s = config.statuses[chipsEl.dataset.statusChips]; if (!Array.isArray(s.actions)) s.actions = []; return s.actions }
+      const dir = chipsEl.dataset.dragChips; const d = config.characterStates.drag.directions[dir]; if (!Array.isArray(d.play)) d.play = []; return d.play
+    }
 
     async function readFileBase64(file) {
       return new Promise((resolve, reject) => {
@@ -557,151 +644,97 @@
         r.readAsDataURL(file)
       })
     }
-
     async function uploadFrames(action, files, label, fps) {
       const frames = []
       for (const f of files) frames.push({ data: await readFileBase64(f) })
-      const res = await fetch(FRAMES_API, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action, label, fps, frames }),
-      })
+      const res = await fetch(FRAMES_API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, label, fps, frames }) })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || '上传失败')
       return body
     }
-
-    document.getElementById('replace-btn').addEventListener('click', async () => {
-      const action = document.getElementById('frame-action').value
-      const files = [...document.getElementById('replace-files').files]
-      if (!action) { alert('请先选择一个动作'); return }
-      if (files.length === 0) { alert('请选择要上传的 PNG 帧'); return }
-      const label = document.getElementById('replace-label').value.trim() || undefined
-      const fps = document.getElementById('replace-fps').value ? Number(document.getElementById('replace-fps').value) : undefined
-      try {
-        await uploadFrames(action, files, label, fps)
-        document.getElementById('replace-files').value = ''
-        document.getElementById('replace-label').value = ''
-        document.getElementById('replace-fps').value = ''
-        await load()
-        msg('帧已更新，记得「重启桌宠」', false)
-      } catch (e) { alert(e.message) }
-    })
-
-    document.getElementById('add-action-btn').addEventListener('click', async () => {
-      const name = document.getElementById('new-action-name').value.trim()
-      const files = [...document.getElementById('new-action-files').files]
-      if (!name) { alert('请输入新动作名'); return }
-      if (files.length === 0) { alert('请选择要上传的 PNG 帧'); return }
-      const fps = Number(document.getElementById('new-action-fps').value) || 5
-      try {
-        await uploadFrames(name, files, name, fps)
-        document.getElementById('new-action-name').value = ''
-        document.getElementById('new-action-files').value = ''
-        await load()
-        msg('动作已添加，记得「重启桌宠」', false)
-      } catch (e) { alert(e.message) }
-    })
-
-    document.getElementById('restart-btn').addEventListener('click', async () => {
-      const msgEl = document.getElementById('restart-msg')
-      msgEl.textContent = '重启中…'
-      msgEl.className = ''
-      try {
-        const res = await fetch(RESTART_API, { method: 'POST' })
-        if (res.ok) { msgEl.textContent = '已重启'; msgEl.className = 'ok' }
-        else { msgEl.textContent = '重启失败'; msgEl.className = 'err' }
-      } catch {
-        msgEl.textContent = '重启失败'; msgEl.className = 'err'
-      }
-    })
-
-    // 收集某动作被引用的位置（用于删除前提示）
     function collectRefs(action) {
       const refs = []
       const cs = config.characterStates || {}
       if ((cs.default?.play || []).includes(action)) refs.push('默认')
-      for (const [sid, s] of Object.entries(config.statuses)) {
-        if ((s.actions || []).includes(action)) refs.push(`任务状态「${STATUS_MEANING[sid] ?? sid}」`)
-      }
+      for (const [sid, s] of Object.entries(config.statuses)) if ((s.actions || []).includes(action)) refs.push(`任务状态「${STATUS_MEANING[sid] || sid}」`)
       if ((cs.click?.play || []).includes(action) || cs.click?.returnTo === action) refs.push('点击')
-      const dragDirs = cs.drag?.directions || {}
-      if (Object.values(dragDirs).some((d) => (d.play || []).includes(action)) || cs.drag?.returnTo === action) refs.push('拖动')
+      const dd = cs.drag?.directions || {}
+      if (Object.values(dd).some(d => (d.play || []).includes(action)) || cs.drag?.returnTo === action) refs.push('拖动')
       if (cs.timeout?.before === action || cs.timeout?.after === action) refs.push('超时')
       return refs
     }
-
-    // 删除动作（事件委托，按钮在 render 里动态生成）
-    document.getElementById('actions-body').addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-del-action]')
-      if (!btn) return
-      const action = btn.dataset.delAction
+    async function deleteAction(action) {
       const refs = collectRefs(action)
       const tip = refs.length ? `\n它正被 ${refs.join('、')} 使用，删除后会自动回退。` : ''
       if (!confirm(`确定删除动作「${action}」吗？将同时删除其帧文件。${tip}`)) return
       try {
-        const res = await fetch('/api/pet.action', {
-          method: 'DELETE',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ action }),
-        })
+        const res = await fetch('/api/pet.action', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) })
         const body = await res.json()
         if (!res.ok) throw new Error(body.error || '删除失败')
-        await load()
-        msg(`已删除「${action}」，记得「重启桌宠」`, false)
+        await load(); setMsg('已删除，记得「重启桌宠」', false); updateDirty()
       } catch (err) { alert(err.message) }
-    })
+    }
+
+    async function addAction() {
+      const name = document.getElementById('new-action-name').value.trim()
+      const files = [...document.getElementById('new-action-files').files]
+      if (!name) { alert('请输入新动作名'); return }
+      if (!files.length) { alert('请选择要上传的 PNG 帧'); return }
+      const fps = Number(document.getElementById('new-action-fps').value) || 5
+      try {
+        await uploadFrames(name, files, name, fps)
+        document.getElementById('new-action-name').value = ''; document.getElementById('new-action-files').value = ''
+        await load(); setMsg('动作已添加，记得「重启桌宠」', false)
+      } catch (e) { alert(e.message) }
+    }
+    async function replaceFrames() {
+      const action = document.getElementById('frame-action').value
+      const files = [...document.getElementById('replace-files').files]
+      if (!action) { alert('请先选择一个动作'); return }
+      if (!files.length) { alert('请选择要上传的 PNG 帧'); return }
+      const label = document.getElementById('replace-label').value.trim() || undefined
+      const fps = document.getElementById('replace-fps').value ? Number(document.getElementById('replace-fps').value) : undefined
+      try {
+        await uploadFrames(action, files, label, fps)
+        document.getElementById('replace-files').value = ''; document.getElementById('replace-label').value = ''; document.getElementById('replace-fps').value = ''
+        await load(); setMsg('帧已更新，记得「重启桌宠」', false)
+      } catch (e) { alert(e.message) }
+    }
+    async function restartPet() {
+      const el = document.getElementById('restart-msg'); el.textContent = '重启中…'
+      try { const r = await fetch(RESTART_API, { method: 'POST' }); el.textContent = r.ok ? '已重启' : '重启失败' } catch { el.textContent = '重启失败' }
+    }
+
+    document.getElementById('pv-play').addEventListener('click', () => playPreview())
+    document.getElementById('pv-replay').addEventListener('click', () => { previewAction(pvAction) })
 
     document.getElementById('save').addEventListener('click', async () => {
-      // 收集状态编辑（文字/颜色）
-      for (const el of document.querySelectorAll('[data-status]')) {
-        const s = config.statuses[el.dataset.status]
-        const v = el.value
-        if (el.dataset.field === 'text') s.text = v
-        else if (el.dataset.field === 'color') s.color = v
-      }
-      // 收集状态的动作随机池
-      for (const el of document.querySelectorAll('[data-status-chips]')) {
-        const sid = el.dataset.statusChips
-        config.statuses[sid].actions = [...el.querySelectorAll('.chip')].map((c) => c.dataset.chip)
-      }
-      // 收集动作编辑
-      for (const el of document.querySelectorAll('[data-action]')) {
-        const a = config.actions[el.dataset.action]
-        const v = el.value
-        if (el.dataset.field === 'label') a.label = v
-        else if (el.dataset.field === 'folder') a.folder = v
-        else if (el.dataset.field === 'count') a.count = Number(v)
-        else if (el.dataset.field === 'fps') a.fps = Number(v)
-      }
-      // 收集角色状态编辑
-      const cs = config.characterStates
-      cs.default.play = [document.getElementById('cs-default').value]
-      cs.click.play = [...document.querySelectorAll('#cs-click-play .chip')].map((c) => c.dataset.chip)
-      cs.click.returnTo = document.getElementById('cs-click-return').value
-      cs.click.afterMs = Number(document.getElementById('cs-click-ms').value)
-      cs.drag.returnTo = document.getElementById('cs-drag-return').value
-      for (const dir of ['left', 'right', 'up', 'down']) {
-        const d = cs.drag.directions[dir]
-        d.play = [...document.querySelectorAll(`[data-drag-chips="${dir}"] .chip`)].map((c) => c.dataset.chip)
-        const flipx = document.querySelector(`[data-drag-flipx="${dir}"]`)
-        if (flipx) d.flipX = flipx.checked
-        const flipy = document.querySelector(`[data-drag-flipy="${dir}"]`)
-        if (flipy) d.flipY = flipy.checked
-      }
-      cs.timeout.before = document.getElementById('cs-timeout-before').value
-      cs.timeout.after = document.getElementById('cs-timeout-after').value
-      cs.timeout.afterMs = Number(document.getElementById('cs-timeout-ms').value)
+      // config 已实时回写，这里直接整体 PUT（保持 JSON Schema 不变）
       const res = await fetch(API, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(config) })
-      if (res.ok) { msg('已保存', false); render() } else { msg('保存失败', true) }
+      if (res.ok) { dirty = false; updateDirty(); }
+      else { setMsg('保存失败', true) }
     })
 
-    function msg(text, isErr) {
-      const el = document.getElementById('status-msg')
-      el.textContent = text
-      el.className = isErr ? 'err' : 'ok'
+    // 帧管理：切换动作 → 渲染帧缩略图
+    function renderFrames(actionId) {
+      const grid = document.getElementById('frames-grid'); const a = config.actions[actionId]
+      if (!a) { grid.innerHTML = '<span class="empty">（暂无动作）</span>'; return }
+      const folder = a.folder || actionId
+      grid.innerHTML = Array.from({ length: a.count }, (_, i) => `<img src="/pet/frames/${folder}/frame_${String(i).padStart(3, '0')}.png?v=${frameBust}" alt="" />`).join('')
     }
-    function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;') }
+    function fillFrameSelect() {
+      const fa = document.getElementById('frame-action')
+      if (!fa) return
+      const prev = fa.value
+      fa.innerHTML = Object.keys(config.actions).map(a => `<option value="${a}">${a}</option>`).join('')
+      if (Object.keys(config.actions).includes(prev)) fa.value = prev
+      renderFrames(fa.value)
+    }
+
+    // 帧管理切换（事件委托，因为动作库渲染后才有该元素）
+    document.addEventListener('change', (e) => {
+      if (e.target && e.target.id === 'frame-action') renderFrames(e.target.value)
+    })
 
     load()
   </script>
