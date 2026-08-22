@@ -110,6 +110,7 @@ function updateDragDirection(x, y) {
 
 // ── 状态机（动作 = 角色动作，intro 播一次后进入 loop 循环）──────────
 let state = defaultAction
+let statusAction = null // 当前状态应持续播放的动作（running 时 = 工作动作）；交互结束后回到它
 let phase = ACTIONS[state].intro.length > 0 ? 'intro' : 'loop'
 let frameIdx = 0
 let lastFrameTime = 0
@@ -214,6 +215,7 @@ function renderStatus() {
   const s = STATUSES[status] ?? STATUSES.offline
   clearTimeout(bubbleTimer)
   bubble.style.pointerEvents = 'none' // 默认气泡不可交互；仅「运行中」可右键打断
+  statusAction = null // 默认清除；仅 running 分支会设置
   if (status === 'running') {
     // 任务进行：持续显示气泡（运行中可右键打断会话）+ 持续循环播放 running 动作（如「工作」）
     bubble.textContent = s.text
@@ -221,7 +223,7 @@ function renderStatus() {
     bubble.className = 'show'
     bubble.style.pointerEvents = 'auto'
     bubbleWasWorking = true
-    if (Array.isArray(s.actions) && s.actions.length > 0) setState(pickPlay(s.actions))
+    if (Array.isArray(s.actions) && s.actions.length > 0) { statusAction = pickPlay(s.actions); setState(statusAction) }
   } else if (status === 'received') {
     // 收到发送：进入 running 前的短暂提示 + 播放「收到」动作（如 Get）。
     // 不改 bubbleWasWorking，让后续 Completed 正常闪烁。
@@ -312,15 +314,15 @@ window.addEventListener('mousemove', (e) => {
 })
 window.addEventListener('mouseup', () => {
   if (dragging && moved) {
-    setState(CS.drag.returnTo) // 松开 → 状态末
+    setState(statusAction || CS.drag.returnTo) // 松开 → running 时回「工作」，否则回状态末
   } else if (dragging && !moved) {
     if (doubleClick.isDoubleClick()) {
       window.petAPI.toggleChat() // 双击 → 呼出/收回聊天框
-    } else if (downState === defaultAction && state === defaultAction) {
-      // 单击（待机时）→ 随机播放点击动作，片刻后回状态末
+    } else if (downState === state && (state === defaultAction || state === statusAction)) {
+      // 单击（待机或 running 时）→ 随机播放点击动作，片刻后回到 home（工作 / 待机）
       const action = pickPlay(CS.click.play)
       setState(action)
-      returnTimer = setTimeout(() => { if (state === action) setState(CS.click.returnTo) }, CS.click.afterMs ?? 2000)
+      returnTimer = setTimeout(() => { if (state === action) setState(statusAction || CS.click.returnTo) }, CS.click.afterMs ?? 2000)
     }
   }
   dragging = false
