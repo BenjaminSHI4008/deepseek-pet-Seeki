@@ -483,7 +483,8 @@
             <h2 style="font-size:14px;margin:0 0 4px">添加新动作</h2>
             <p class="hint">上传 PNG 帧序列（顺序即播放顺序），自动生成帧目录</p>
             <div class="frame-row">
-              <div class="field"><label class="fl">动作名</label><input type="text" id="new-action-name" placeholder="e.g. wave" /></div>
+              <div class="field"><label class="fl">动作名</label><input type="text" id="new-action-name" placeholder="e.g. 工作" /></div>
+              <div class="field"><label class="fl">帧目录（英文，留空自动）</label><input type="text" id="new-action-folder" placeholder="e.g. working" /></div>
               <div class="field field-file"><label class="fl">帧（PNG 可多选）</label><input type="file" id="new-action-files" accept="image/png" multiple /></div>
               <div class="field"><label class="fl">帧率 fps</label><input type="number" id="new-action-fps" step="0.1" min="0.1" value="5" /></div>
               <div class="field" style="flex:0 0 auto"><button class="btn" id="add-action-btn">添加动作</button></div>
@@ -644,10 +645,12 @@
         r.readAsDataURL(file)
       })
     }
-    async function uploadFrames(action, files, label, fps) {
+    async function uploadFrames(action, files, label, fps, folder) {
       const frames = []
       for (const f of files) frames.push({ data: await readFileBase64(f) })
-      const res = await fetch(FRAMES_API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, label, fps, frames }) })
+      const payload = { action, label, fps, frames }
+      if (folder) payload.folder = folder
+      const res = await fetch(FRAMES_API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || '上传失败')
       return body
@@ -681,9 +684,10 @@
       if (!name) { alert('请输入新动作名'); return }
       if (!files.length) { alert('请选择要上传的 PNG 帧'); return }
       const fps = Number(document.getElementById('new-action-fps').value) || 5
+      const folder = document.getElementById('new-action-folder').value.trim()
       try {
-        await uploadFrames(name, files, name, fps)
-        document.getElementById('new-action-name').value = ''; document.getElementById('new-action-files').value = ''
+        await uploadFrames(name, files, name, fps, folder)
+        document.getElementById('new-action-name').value = ''; document.getElementById('new-action-files').value = ''; document.getElementById('new-action-folder').value = ''
         await load(); setMsg('动作已添加，记得「重启桌宠」', false)
       } catch (e) { alert(e.message) }
     }

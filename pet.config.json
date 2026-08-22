@@ -16,7 +16,9 @@
     "running": {
       "text": "Deep diving...",
       "color": "#4fc3f7",
-      "actions": []
+      "actions": [
+        "工作"
+      ]
     },
     "completed": {
       "text": "Completed",
@@ -66,10 +68,16 @@
       ]
     },
     "Get": {
-      "label": "Get",
+      "label": "收到",
       "fps": 9,
       "folder": "Get",
       "count": 9
+    },
+    "工作": {
+      "label": "工作",
+      "fps": 5,
+      "folder": "Working",
+      "count": 10
     }
   },
   "statusActionMs": 2000,

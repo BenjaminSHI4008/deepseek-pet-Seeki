@@ -58,9 +58,13 @@ function readBody(req: IncomingMessage): Promise<string> {
   })
 }
 
-/** 把动作名净化为安全的目录名。 */
+/** 把动作名净化为安全的目录名；纯非 ASCII（如中文）名称时生成稳定 ASCII 目录名，避免 `__` 之类无意义名。 */
 function sanitizeFolder(name: string): string {
-  return String(name).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'action'
+  const s = String(name).replace(/[^a-zA-Z0-9_-]/g, '_').replace(/__+/g, '_').replace(/^_+|_+$/g, '').slice(0, 64)
+  if (/[a-zA-Z0-9]/.test(s)) return s
+  let h = 0
+  for (const ch of String(name)) h = (h * 31 + (ch.codePointAt(0) ?? 0)) >>> 0
+  return 'action_' + h.toString(36)
 }
 
 const PNG_MAGIC = '89504e470d0a1a0a'
@@ -542,15 +546,17 @@ export function apply(ctx: Context, config: Config = {}): void {
       handler: async (req: IncomingMessage, res: ServerResponse) => {
         if (req.method !== 'POST') { res.writeHead(405); res.end(); return }
         try {
-          const { action, label, fps, frames } = JSON.parse(await readBody(req))
+          const { action, label, fps, frames, folder: folderArg } = JSON.parse(await readBody(req))
           if (typeof action !== 'string' || !action) throw new Error('action 必填')
           if (!Array.isArray(frames) || frames.length === 0) throw new Error('frames 至少一张')
+          // 客户端可显式指定帧目录（英文），避免中文动作名被净化为无意义名
+          if (folderArg !== undefined && (typeof folderArg !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(folderArg))) throw new Error('帧目录仅允许英文/数字/下划线/连字符')
 
           const cfg = await readConfig()
           if (cfg === null) throw new Error('config not found')
           const actions = (cfg.actions ?? {}) as Record<string, { label?: string; fps?: number; folder: string; count: number; intro?: [number, number] }>
           const existing = actions[action]
-          const folder = existing?.folder ?? sanitizeFolder(action)
+          const folder = folderArg || existing?.folder || sanitizeFolder(action)
 
           // 先全部解码并校验（PNG 魔数 + 尺寸上限），再写盘——避免半截写坏目录
           const bufs: Buffer[] = []
