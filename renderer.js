@@ -215,12 +215,13 @@ function renderStatus() {
   clearTimeout(bubbleTimer)
   bubble.style.pointerEvents = 'none' // 默认气泡不可交互；仅「运行中」可右键打断
   if (status === 'running') {
-    // 任务进行：持续显示气泡（运行中可右键打断会话）
+    // 任务进行：持续显示气泡（运行中可右键打断会话）+ 持续循环播放 running 动作（如「工作」）
     bubble.textContent = s.text
     bubble.style.color = s.color
     bubble.className = 'show'
     bubble.style.pointerEvents = 'auto'
     bubbleWasWorking = true
+    if (Array.isArray(s.actions) && s.actions.length > 0) setState(pickPlay(s.actions))
   } else if (status === 'received') {
     // 收到发送：进入 running 前的短暂提示 + 播放「收到」动作（如 Get）。
     // 不改 bubbleWasWorking，让后续 Completed 正常闪烁。
@@ -237,6 +238,7 @@ function renderStatus() {
       bubble.className = 'show'
       bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 5000)
       if (Array.isArray(s.actions) && s.actions.length > 0) triggerStatusAction(s.actions) // 如 completed → [happy, ...] 随机
+      else setState(defaultAction) // 无动作时回到默认，避免停留在 running 动作
     } else {
       bubble.className = ''
     }
