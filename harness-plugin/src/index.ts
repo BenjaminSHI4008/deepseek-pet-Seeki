@@ -348,6 +348,8 @@ export function apply(ctx: Context, config: Config = {}): void {
   let terminated = false
   // 刚收到发送、agent 尚未进入 running：短暂显示「收到啦」。
   let received = false
+  let receivedStart = 0 // received 开始时间，保证「收到啦 + 动作」至少展示 1.2s
+  let receivedTimer: ReturnType<typeof setTimeout> | null = null
   // running 归零后延迟一拍再广播，等 mux 流的 turn/end 先到（两个流投递顺序不保证）。
   let endedTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -364,16 +366,23 @@ export function apply(ctx: Context, config: Config = {}): void {
     }
   }
   const broadcast = (): void => send({ type: 'status', status: current() })
+  // 结束 received（清除标记 + 广播最新状态）。
+  const finishReceived = (): void => {
+    if (!received) return
+    received = false
+    if (receivedTimer) { clearTimeout(receivedTimer); receivedTimer = null }
+    broadcast()
+  }
   // 聊天服务：桥接桌宠 ↔ harness 会话（复用同一条 WS）。
   // 桌宠退出不影响 harness（harness 常驻后台）；唤醒桌宠时才由启动器拉起 harness。
   const chat = new ChatService(ctx.apiProxy, send, () => {
-    // 每次「收到发送」都进入 received（短暂覆盖 running），给「收到啦 + 动作」反馈。
+    // 每次「收到发送」都进入 received，给「收到啦 + 动作」反馈。
     received = true
+    receivedStart = Date.now()
     broadcast()
-    // 兜底：3s 后回落（若 agent 已进入 running 会由 host 事件提前清掉 received）。
-    setTimeout(() => {
-      if (received) { received = false; broadcast() }
-    }, 3000)
+    // 兜底：3s 后仍未结束则强制结束（agent 一直未进入 running）。
+    if (receivedTimer) clearTimeout(receivedTimer)
+    receivedTimer = setTimeout(() => { receivedTimer = null; finishReceived() }, 3000)
   })
   const scheduleEnded = (): void => {
     if (endedTimer) clearTimeout(endedTimer)
@@ -399,7 +408,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         if (event.type !== 'turn/end') continue
         const kind = event.data.reason.kind
         terminated = kind === 'error' || kind === 'aborted'
-        received = false // turn 结束即离开「收到啦」
+        // 不在此立即清 received：由 finishReceived（最短 1.2s / 3s 兜底）负责切换
       }
     })().catch(() => {})
 
@@ -410,9 +419,19 @@ export function apply(ctx: Context, config: Config = {}): void {
           if (payload.running) {
             running.add(payload.sessionId)
             terminated = false
-            received = false // 进入 running，离开「收到啦」
             if (endedTimer) { clearTimeout(endedTimer); endedTimer = null }
-            broadcast()
+            if (received) {
+              // 「收到啦」至少展示 1.2s：未到点则延后到点再切 running，避免收到动作一闪而过
+              const remain = receivedStart + 1200 - Date.now()
+              if (remain > 0) {
+                if (receivedTimer) clearTimeout(receivedTimer)
+                receivedTimer = setTimeout(() => { receivedTimer = null; finishReceived() }, remain)
+              } else {
+                finishReceived()
+              }
+            } else {
+              broadcast()
+            }
           } else {
             running.delete(payload.sessionId)
             if (running.size === 0) scheduleEnded()
@@ -427,6 +446,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     return () => {
       abort.abort()
       if (endedTimer) clearTimeout(endedTimer)
+      if (receivedTimer) clearTimeout(receivedTimer)
     }
   }, 'pet-status: event streams')
 
