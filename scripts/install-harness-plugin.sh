@@ -11,10 +11,11 @@ NM_DIR="$PROFILE_ROOT/node_modules"
 PLUGIN_DIR="$NM_DIR/dsh-pet-status"
 
 # 1) 复制插件到 profile 共享 node_modules（真实目录，非软链，保证 @deepseek-ai/* 能解析）
-mkdir -p "$PLUGIN_DIR/src"
+mkdir -p "$PLUGIN_DIR/src" "$PLUGIN_DIR/dist"
 cp "$PET_REPO/harness-plugin/src/index.ts" "$PLUGIN_DIR/src/index.ts"
 cp "$PET_REPO/harness-plugin/package.json" "$PLUGIN_DIR/package.json"
 cp "$PET_REPO/harness-plugin/settings.html" "$PLUGIN_DIR/settings.html"
+cp "$PET_REPO/harness-plugin/dist/index.js" "$PLUGIN_DIR/dist/index.js"
 
 # 2) 把插件名写进 profile 的依赖清单（resolver manifest）
 node - "$WEB_DIR/package.json" <<'NODE'

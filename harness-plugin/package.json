@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "description": "DeepSeek Harness 桌宠插件：广播任务状态（running/completed/terminated）给桌宠，并作为桌宠管理器（配置/帧上传/删除/重启）",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "tsdown src/index.ts --out-dir dist"
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node23 --external:@deepseek-ai/* --external:node:* --external:ws --outfile=dist/index.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
@@ -19,10 +19,9 @@
   "devDependencies": {
     "@deepseek-ai/cordis": "*",
     "@deepseek-ai/dsh-host-webserver": "*",
-    "@deepseek-ai/dsh-host-apiproxy": "*",
     "@deepseek-ai/dsh-session": "*",
     "@types/ws": "^8.5.12",
-    "tsdown": "*",
+    "esbuild": "^0.25.0",
     "typescript": "*"
   },
   "license": "MIT",
