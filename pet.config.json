@@ -2,6 +2,7 @@
   "version": 3,
   "character": "Seeki",
   "direction": "south",
+  "scale": 0.8,
   "server": {
     "wsUrl": "ws://127.0.0.1:3080/api/pet.ws"
   },

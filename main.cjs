@@ -6,7 +6,11 @@ const os = require('os')
 const WebSocket = require('ws')
 const { ChatWindow } = require('./chat-window.cjs')
 
-const WIN_SIZE = 240
+// 桌宠基准尺寸（默认 240px）与缩放范围；整体大小 = BASE_SIZE × scale
+const BASE_SIZE = 240
+const MIN_SCALE = 0.5
+const MAX_SCALE = 3
+const clampScale = (v) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, typeof v === 'number' && isFinite(v) ? v : 1))
 
 // 读取 pet.config.json（主进程用 fs 直接读，拿到 harness 的 WebSocket 地址）
 let petConfig = {}
@@ -15,13 +19,16 @@ try {
 } catch (error) {
   console.error('读取 pet.config.json 失败：', error)
 }
+// 桌宠整体缩放：窗口尺寸 = BASE_SIZE × scale（默认 1 = 240px）
+let currentScale = clampScale(petConfig.scale)
+const WIN_SIZE = Math.round(BASE_SIZE * currentScale)
 // 优先用 harness 插件通过环境变量传入的地址（端口随 harness 实际绑定端口变化）
 const WS_URL = process.env.PET_WS_URL ?? petConfig.server?.wsUrl ?? 'ws://127.0.0.1:3080/api/pet.ws'
 // 配置页地址：由 WS 地址推导（ws://host:port/api/pet.ws → http://host:port/pet/settings）
 const SETTINGS_URL = WS_URL.replace(/^ws/, 'http').replace(/\/api\/pet\.ws$/, '') + '/pet/settings'
 
 // 聊天窗口（双击桌宠打开）
-const chatWindow = new ChatWindow()
+const chatWindow = new ChatWindow(WIN_SIZE)
 
 // ── 聊天工作区（会话记录存放的文件夹）───────────────────────────────
 const chatConfigPath = path.join(app.getPath('userData'), 'chat.config.json')
@@ -195,6 +202,35 @@ ipcMain.on('pet-drag-move', (e, { sx, sy }) => {
   if (chatWindow.isOpen) chatWindow.follow(win.getPosition()) // 聊天气泡跟随桌宠移动
 })
 
+// 运行时调整桌宠大小：持久化 scale 到配置、缩放窗口、通知渲染层重绘
+function setScale(newScale) {
+  const s = clampScale(newScale)
+  if (s === currentScale) return
+  currentScale = s
+  try {
+    // 读-改-写，保留其他字段（配置页可能同时改动了别处）
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'pet.config.json'), 'utf8'))
+    cfg.scale = s
+    fs.writeFileSync(path.join(__dirname, 'pet.config.json'), JSON.stringify(cfg, null, 2) + '\n')
+    petConfig = cfg
+  } catch (error) {
+    console.error('[pet] 保存缩放失败：', error)
+  }
+  const size = Math.round(BASE_SIZE * s)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    // 保持底部中心锚定，缩放时桌宠不漂移
+    const [x, y] = mainWindow.getPosition()
+    const [w, h] = mainWindow.getSize()
+    const cx = x + w / 2
+    const bottom = y + h
+    mainWindow.setSize(size, size)
+    mainWindow.setPosition(Math.round(cx - size / 2), Math.round(bottom - size))
+    mainWindow.webContents.send('pet-set-scale', s)
+  }
+  chatWindow.setPetSize(size)
+  if (chatWindow.isOpen) chatWindow.follow(mainWindow.getPosition())
+}
+
 function createWindow() {
   const { workAreaSize } = screen.getPrimaryDisplay()
   const win = new BrowserWindow({
@@ -217,9 +253,26 @@ function createWindow() {
   win.setPosition(workAreaSize.width - WIN_SIZE - 40, workAreaSize.height - WIN_SIZE - 40)
   win.loadFile('index.html')
 
-  // 右键菜单：更改配置 / 退出（无边框窗口没有关闭按钮）
+  // 右键菜单：调整大小 / 更改配置 / 退出（无边框窗口没有关闭按钮）
   win.webContents.on('context-menu', () => {
+    const sizePresets = [
+      { label: '50%', value: 0.5 },
+      { label: '75%', value: 0.75 },
+      { label: '100%', value: 1 },
+      { label: '125%', value: 1.25 },
+      { label: '150%', value: 1.5 },
+      { label: '200%', value: 2 },
+    ]
     Menu.buildFromTemplate([
+      {
+        label: '📏 调整大小',
+        submenu: sizePresets.map((p) => ({
+          label: p.label,
+          type: 'radio',
+          checked: Math.abs(currentScale - p.value) < 0.001,
+          click: () => setScale(p.value),
+        })),
+      },
       { label: '⚙️ 更改配置', click: () => shell.openExternal(SETTINGS_URL) },
       { type: 'separator' },
       { label: '退出桌宠', click: () => app.quit() },
