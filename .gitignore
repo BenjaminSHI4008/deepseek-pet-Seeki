@@ -4,6 +4,9 @@ node_modules/
 # 构建产物
 dist/
 *.tsbuildinfo
+# harness-plugin 需要提交编译产物（main 指向 dist/index.js）
+!harness-plugin/dist/
+!harness-plugin/dist/index.js
 
 # 环境变量
 .env
