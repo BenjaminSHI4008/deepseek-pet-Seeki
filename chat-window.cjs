@@ -11,10 +11,14 @@ const HEAD_OFFSET = 22 // 桌宠头顶相对窗口顶部的近似偏移（精灵
 const GAP = 3 // 气泡尖角到头顶的呼吸空间（小间距，不贴住）
 
 class ChatWindow {
-  constructor() {
+  constructor(petSize = 240) {
     this.win = null
     this.anchor = null // 桌宠窗口位置 [x, y]
+    this.petSize = petSize // 桌宠当前窗口尺寸（用于锚定居中 + 头顶偏移）
   }
+
+  // 桌宠缩放后更新锚定尺寸
+  setPetSize(size) { this.petSize = Math.round(size) }
 
   get isOpen() {
     return !!this.win && !this.win.isDestroyed()
@@ -58,11 +62,12 @@ class ChatWindow {
     if (!this.isOpen) return
     const [w, h] = this.win.getSize()
     const { workAreaSize } = screen.getPrimaryDisplay()
-    const petX = this.anchor ? this.anchor[0] : workAreaSize.width - 240 - 40
-    const petY = this.anchor ? this.anchor[1] : workAreaSize.height - 240 - 40
-    const x = Math.round(Math.min(Math.max(petX + 120 - w / 2, 0), workAreaSize.width - w))
-    // 锚定到桌宠头顶（petY + HEAD_OFFSET）而非窗口顶部，缩短视觉间距
-    const headY = petY + HEAD_OFFSET
+    const petW = this.petSize
+    const petX = this.anchor ? this.anchor[0] : workAreaSize.width - petW - 40
+    const petY = this.anchor ? this.anchor[1] : workAreaSize.height - petW - 40
+    const x = Math.round(Math.min(Math.max(petX + petW / 2 - w / 2, 0), workAreaSize.width - w))
+    // 锚定到桌宠头顶（petY + 头顶偏移）而非窗口顶部，缩短视觉间距；偏移随缩放等比变化
+    const headY = petY + Math.round(HEAD_OFFSET * (petW / 240))
     const y = Math.round(Math.min(Math.max(headY - h - GAP, 0), workAreaSize.height - h))
     this.win.setPosition(x, y)
   }

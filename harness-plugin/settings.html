@@ -64,6 +64,9 @@
     .dirty-dot.is-dirty::before { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); }
     .dirty-dot.is-saved { color: var(--success); }
     .dirty-dot.is-saved::before { background: var(--success); }
+    .size-ctl { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-500); white-space: nowrap; }
+    .size-ctl input[type=range] { width: 120px; accent-color: var(--primary); cursor: pointer; }
+    .size-ctl b { color: var(--ink-900); font-weight: 600; min-width: 38px; text-align: right; }
     .btn {
       background: var(--primary); color: #fff; border: none; border-radius: var(--radius-sm);
       padding: 9px 20px; font: 600 13px var(--font); cursor: pointer;
@@ -224,6 +227,10 @@
       </div>
       <div class="spacer"></div>
       <span class="dirty-dot" id="dirty-dot">已保存</span>
+      <label class="size-ctl" title="桌宠大小（保存后需「重启桌宠」生效）">大小
+        <input type="range" id="pet-scale" min="50" max="300" step="5" />
+        <b id="pet-scale-val">100%</b>
+      </label>
       <button class="btn" id="save">保存配置</button>
     </div>
   </header>
@@ -284,10 +291,20 @@
       normalize()
       frameBust++
       render()
+      syncScale()
+    }
+
+    function syncScale() {
+      const el = document.getElementById('pet-scale')
+      const val = document.getElementById('pet-scale-val')
+      if (!el) return
+      el.value = Math.round((config.scale ?? 1) * 100)
+      val.textContent = el.value + '%'
     }
 
     // 补齐缺失字段（与旧逻辑一致，保持配置格式不变）
     function normalize() {
+      config.scale = typeof config.scale === 'number' && config.scale > 0 ? config.scale : 1
       config.statusActionMs = config.statusActionMs ?? 2000
       config.characterStates = config.characterStates || {}
       const cs = config.characterStates
@@ -711,6 +728,12 @@
 
     document.getElementById('pv-play').addEventListener('click', () => playPreview())
     document.getElementById('pv-replay').addEventListener('click', () => { previewAction(pvAction) })
+
+    document.getElementById('pet-scale').addEventListener('input', (e) => {
+      config.scale = Number(e.target.value) / 100
+      document.getElementById('pet-scale-val').textContent = e.target.value + '%'
+      markDirty()
+    })
 
     document.getElementById('save').addEventListener('click', async () => {
       // config 已实时回写，这里直接整体 PUT（保持 JSON Schema 不变）

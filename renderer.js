@@ -5,13 +5,15 @@
 //   - 角色状态（characterStates，鼠标状态驱动）：默认/点击/拖动/超时 → 决定何时播哪个动作
 const canvas = document.getElementById('pet')
 const ctx = canvas.getContext('2d')
-const SCALE = 1.5
+const BASE_SCALE = 1.5
+const BASE_SIZE = 240
 const bubble = document.getElementById('bubble')
 
 // 尽早注册状态监听（避免错过初始推送）；渲染延后到配置加载完成后
 let latestStatus = 'offline'
 let configLoaded = false
 window.petAPI.onStatus((s) => { latestStatus = s; if (configLoaded) renderStatus() })
+window.petAPI.onScale((s) => applyScale(s))
 
 const config = await (await fetch('./pet.config.json')).json()
 const DIR = config.direction
@@ -19,6 +21,18 @@ const ROOT = 'Deepseek'
 const STATUSES = config.statuses
 const CS = config.characterStates ?? {}
 const STATUS_ACTION_MS = config.statusActionMs ?? 2000
+
+// 桌宠整体缩放：画布尺寸 = 240 × scale，精灵缩放 = 1.5 × scale（scale 默认 1）
+const winScale = typeof config.scale === 'number' && config.scale > 0 ? config.scale : 1
+let SCALE = BASE_SCALE * winScale
+let WIN_SIZE = Math.round(BASE_SIZE * winScale)
+canvas.width = WIN_SIZE
+canvas.height = WIN_SIZE
+canvas.style.width = WIN_SIZE + 'px'
+canvas.style.height = WIN_SIZE + 'px'
+bubble.style.fontSize = Math.round(10 * winScale) + 'px'
+const _shadow = Math.max(1, Math.round(2 * winScale))
+bubble.style.textShadow = `${_shadow}px ${_shadow}px 0 #000`
 
 // 构建动作：intro（入场帧，播一次）+ loop（循环帧）
 function framePaths(folder, count) {
@@ -164,6 +178,22 @@ function drawFrame(path) {
   }
   ctx.drawImage(img, dx, dy, w, h)
   ctx.restore()
+}
+
+// 运行时调整大小（右键菜单）：重建画布缓冲/CSS 尺寸，并按当前帧重绘
+function applyScale(s) {
+  if (!configLoaded) return
+  const ws = typeof s === 'number' && s > 0 ? s : 1
+  SCALE = BASE_SCALE * ws
+  WIN_SIZE = Math.round(BASE_SIZE * ws)
+  canvas.width = WIN_SIZE
+  canvas.height = WIN_SIZE
+  canvas.style.width = WIN_SIZE + 'px'
+  canvas.style.height = WIN_SIZE + 'px'
+  bubble.style.fontSize = Math.round(10 * ws) + 'px'
+  const sh = Math.max(1, Math.round(2 * ws))
+  bubble.style.textShadow = `${sh}px ${sh}px 0 #000`
+  if (ACTIONS[state]) drawFrame(curFrames()[frameIdx])
 }
 
 function tick(now) {
